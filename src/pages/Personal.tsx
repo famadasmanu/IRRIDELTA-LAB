@@ -246,13 +246,13 @@ export default function Personal() {
 
   const handleSaveEditItem = () => {
     if (editingItemType === 'vehicle' && editingItemId) {
-      setVehicles(prev => prev.map(v => v.id === editingItemId ? { ...v, name: editName, image: editImage, status: editStatus } : v));
+      setVehicles((prev: any[]) => prev.map(v => v.id === editingItemId ? { ...v, name: editName, image: editImage, status: editStatus } : v));
       showToast('Vehículo actualizado');
     } else if (editingItemType === 'delivery' && editingItemId) {
-      setDeliveries(prev => prev.map(d => d.id === editingItemId ? { ...d, material: editName, image: editImage } : d));
+      setDeliveries((prev: any[]) => prev.map(d => d.id === editingItemId ? { ...d, material: editName, image: editImage } : d));
       showToast('Entrega actualizada');
     } else if (editingItemType === 'service' && editingItemId) {
-      setUpcomingServices(prev => prev.map(s => s.id === editingItemId ? { ...s, title: editName, status: editStatus } : s));
+      setUpcomingServices((prev: any[]) => prev.map(s => s.id === editingItemId ? { ...s, title: editName, status: editStatus } : s));
       showToast('Service actualizado');
     }
     setIsEditModalOpen(false);
@@ -263,7 +263,7 @@ export default function Personal() {
       showToast('Por favor completa todos los campos');
       return;
     }
-    setCorrectiveIssues(prev => [
+    setCorrectiveIssues((prev: any[]) => [
       {
         id: Date.now(),
         title: newCorrectiveIssue.title,
@@ -317,7 +317,7 @@ export default function Personal() {
       return;
     }
     if (selectedMember && editName.trim() !== '') {
-      setPersonalData(prev => prev.map(p =>
+      setPersonalData((prev: PersonalMember[]) => prev.map((p: PersonalMember) =>
         p.id === selectedMember.id ? { ...p, name: editName.trim(), presencialidad: editPresencialidad, adelantos: editAdelantos } : p
       ));
       if (selectedEmployeeDetail && selectedEmployeeDetail.id === selectedMember.id) {
@@ -344,7 +344,7 @@ export default function Personal() {
         presencialidad: editPresencialidadValue,
         attendanceAlert: editAttendanceAlert
       };
-      setPersonalData(personalData.map(m => m.id === updatedMember.id ? updatedMember : m));
+      setPersonalData(personalData.map((m: PersonalMember) => m.id === updatedMember.id ? updatedMember : m));
       setSelectedEmployeeDetail(updatedMember);
       setIsEditingLocation(false);
       setIsEditingAdelantos(false);
@@ -465,7 +465,7 @@ export default function Personal() {
             <tbody>
       `;
 
-      personalData.forEach(member => {
+      personalData.forEach((member: PersonalMember) => {
         contentHtml += `
           <tr style="background-color: white;">
             <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">${member.name}</td>
@@ -1667,7 +1667,7 @@ export default function Personal() {
                 <button
                   key={person.id}
                   onClick={() => {
-                    setVehicles(prev => prev.map(v => v.id === selectedVehicleDetail.id ? { ...v, driver: person.name } : v));
+                    setVehicles((prev: any[]) => prev.map(v => v.id === selectedVehicleDetail.id ? { ...v, driver: person.name } : v));
                     setSelectedVehicleDetail({ ...selectedVehicleDetail, driver: person.name });
                     setIsChangeUserModalOpen(false);
                     showToast('Usuario actualizado');
