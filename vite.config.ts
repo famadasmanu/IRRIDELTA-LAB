@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        workbox: {
+          maximumFileSizeToCacheInBytes: 5242880 // 5 MB
+        },
         manifest: {
           name: 'IRRIDELTA ERP',
           short_name: 'Irridelta',
