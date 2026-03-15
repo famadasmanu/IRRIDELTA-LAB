@@ -7,7 +7,7 @@ import {
   Briefcase, Calendar, Clock, SplitSquareHorizontal, Layers, Activity,
   Percent, ArrowRight, Zap, Target, ShoppingCart
 } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { Modal } from '../components/Modal';
 import { cn } from '../lib/utils';
 import { useLocation } from 'react-router-dom';
@@ -95,8 +95,14 @@ export default function Archivo() {
   }, [location]);
 
   // --- Archivos Generales State ---
-  const [folders, setFolders] = useLocalStorage('archivo_folders', initialFolders);
-  const [recentFiles, setRecentFiles] = useLocalStorage('archivo_recent_files', initialRecentFiles);
+  const { data: foldersRaw, add: addFolder, update: updateFolder, remove: removeFolder } = useFirestoreCollection<any>('archivo_folders');
+  const folders = foldersRaw.length > 0 ? foldersRaw : initialFolders;
+  const setFolders = (updater: any) => {};
+
+  const { data: recentFilesRaw, add: addRecentFile, update: updateRecentFile, remove: removeRecentFile } = useFirestoreCollection<any>('archivo_recent_files');
+  const recentFiles = recentFilesRaw.length > 0 ? recentFilesRaw : initialRecentFiles;
+  const setRecentFiles = (updater: any) => {};
+
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -118,7 +124,8 @@ export default function Archivo() {
   // --- Documentación State ---
   const [docView, setDocView] = useState<DocViewState>('folders');
   const [selectedDoc, setSelectedDoc] = useState<PersonalDoc | null>(null);
-  const [personalDocsState, setPersonalDocsState] = useLocalStorage('archivo_personal_docs', personalDocs);
+  const { data: personalDocsStateRaw, add: addPersonalDoc, update: updatePersonalDoc, remove: removePersonalDoc } = useFirestoreCollection<PersonalDoc>('archivo_personal_docs');
+  const personalDocsState = personalDocsStateRaw.length > 0 ? personalDocsStateRaw : personalDocs;
   const [editingPersonalDoc, setEditingPersonalDoc] = useState<PersonalDoc | null>(null);
   const [editDocArtStatus, setEditDocArtStatus] = useState<'vigente' | 'vencida' | 'pendiente'>('vigente');
   const [editDocArtExpiry, setEditDocArtExpiry] = useState('');
@@ -156,7 +163,7 @@ export default function Archivo() {
         action: 'Descargar',
         tags: []
       };
-      setRecentFiles([newFile, ...recentFiles]);
+      addRecentFile(newFile);
       displayToast('Archivo subido exitosamente');
 
       // Uploading logic handled in PDFComparator for the 'comparador' tab using new files now.
@@ -170,16 +177,17 @@ export default function Archivo() {
   };
 
   const handleDelete = (id: number, type: 'folder' | 'subfolder' | 'file') => {
-    if (type === 'folder') setFolders(folders.filter((f: any) => f.id !== id));
+    if (type === 'folder') removeFolder(id.toString());
     if (type === 'subfolder' && currentFolderId) {
-      setFolders(folders.map((f: any) => {
-        if (f.id === currentFolderId) {
-          return { ...f, subfolders: f.subfolders.filter((sf: any) => sf.id !== id) };
-        }
-        return f;
-      }));
+      const folderToUpdate = folders.find((f: any) => f.id === currentFolderId);
+      if (folderToUpdate) {
+        updateFolder(currentFolderId.toString(), {
+          ...folderToUpdate,
+          subfolders: folderToUpdate.subfolders.filter((sf: any) => sf.id !== id)
+        });
+      }
     }
-    if (type === 'file') setRecentFiles(recentFiles.filter((f: any) => f.id !== id));
+    if (type === 'file') removeRecentFile(id.toString());
     setOptionsItem(null);
   };
 
@@ -195,16 +203,19 @@ export default function Archivo() {
     if (!editName.trim() || !editingFile || !editType) return;
 
     if (editType === 'folder') {
-      setFolders(folders.map((f: any) => f.id === editingFile.id ? { ...f, name: editName } : f));
+      const folderToUpdate = folders.find((f: any) => f.id === editingFile.id);
+      if (folderToUpdate) updateFolder(editingFile.id.toString(), { ...folderToUpdate, name: editName });
     } else if (editType === 'subfolder' && currentFolderId) {
-      setFolders(folders.map((f: any) => {
-        if (f.id === currentFolderId) {
-          return { ...f, subfolders: f.subfolders.map((sf: any) => sf.id === editingFile.id ? { ...sf, name: editName } : sf) };
-        }
-        return f;
-      }));
+      const folderToUpdate = folders.find((f: any) => f.id === currentFolderId);
+      if (folderToUpdate) {
+        updateFolder(currentFolderId.toString(), {
+          ...folderToUpdate,
+          subfolders: folderToUpdate.subfolders.map((sf: any) => sf.id === editingFile.id ? { ...sf, name: editName } : sf)
+        });
+      }
     } else {
-      setRecentFiles(recentFiles.map((f: any) => f.id === editingFile.id ? { ...f, name: editName } : f));
+      const fileToUpdate = recentFiles.find((f: any) => f.id === editingFile.id);
+      if (fileToUpdate) updateRecentFile(editingFile.id.toString(), { ...fileToUpdate, name: editName });
     }
 
     setEditingFile(null);
@@ -217,7 +228,8 @@ export default function Archivo() {
     if (!editingTagsFile) return;
 
     const tagsArray = editTags.split(',').map(t => t.trim()).filter(t => t);
-    setRecentFiles(recentFiles.map((f: any) => f.id === editingTagsFile.id ? { ...f, tags: tagsArray } : f));
+    const fileToUpdate = recentFiles.find((f: any) => f.id === editingTagsFile.id);
+    if (fileToUpdate) updateRecentFile(editingTagsFile.id.toString(), { ...fileToUpdate, tags: tagsArray });
 
     setEditingTagsFile(null);
     displayToast('Tags actualizados');
@@ -236,21 +248,21 @@ export default function Archivo() {
     e.preventDefault();
     if (!editingPersonalDoc) return;
 
-    const updatedDocs = personalDocsState.map((d: PersonalDoc) =>
-      d.id === editingPersonalDoc.id ? {
-        ...d,
+    const docToUpdate = personalDocsState.find((d: PersonalDoc) => d.id === editingPersonalDoc.id);
+    if (docToUpdate) {
+      const updatedDoc = {
+        ...docToUpdate,
         artStatus: editDocArtStatus,
         artExpiry: editDocArtExpiry,
         insuranceStatus: editDocInsStatus,
         insuranceExpiry: editDocInsExpiry
-      } : d
-    );
+      };
+      updatePersonalDoc(editingPersonalDoc.id.toString(), updatedDoc);
 
-    setPersonalDocsState(updatedDocs);
-
-    // If we are currently previewing this document, update the preview as well
-    if (selectedDoc && selectedDoc.id === editingPersonalDoc.id) {
-      setSelectedDoc(updatedDocs.find((d: PersonalDoc) => d.id === editingPersonalDoc.id) || null);
+      // If we are currently previewing this document, update the preview as well
+      if (selectedDoc && selectedDoc.id === editingPersonalDoc.id) {
+        setSelectedDoc(updatedDoc);
+      }
     }
 
     setEditingPersonalDoc(null);

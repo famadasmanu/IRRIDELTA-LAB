@@ -1,12 +1,19 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useState } from 'react';
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
 }
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const [userRole] = useLocalStorage('user_role', 'admin');
+  const [userRole] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('user_role');
+      return item ? JSON.parse(item) : 'admin';
+    } catch {
+      return 'admin';
+    }
+  });
   const location = useLocation();
 
   if (allowedRoles && !allowedRoles.includes(userRole)) {

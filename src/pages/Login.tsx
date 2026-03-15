@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Leaf, Mail, Lock, Eye, EyeOff, Fingerprint, HelpCircle, UserPlus, AlertCircle } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, signInWithGoogle } from '../lib/firebase';
 
@@ -12,12 +12,25 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
   const [loading, setLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const [companyData] = useLocalStorage('config_company', {
-    nombre: 'GreenFields Landscapes',
-    cuit: '30-12345678-9',
-    direccion: 'Av. Libertador 1234, CABA',
-    terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
-    logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
+  const [companyData] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('config_company');
+      return item ? JSON.parse(item) : {
+        nombre: 'GreenFields Landscapes',
+        cuit: '30-12345678-9',
+        direccion: 'Av. Libertador 1234, CABA',
+        terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
+        logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
+      };
+    } catch {
+      return {
+        nombre: 'GreenFields Landscapes',
+        cuit: '30-12345678-9',
+        direccion: 'Av. Libertador 1234, CABA',
+        terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
+        logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
+      };
+    }
   });
 
   const displayLogo = companyData?.logo;

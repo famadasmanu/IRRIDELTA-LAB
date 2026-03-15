@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, Droplets, RefreshCw, AlertCircle, CheckCircle, Smartphone, Power, Loader2, Play, Square } from 'lucide-react';
 
-import { useLocalStorage } from '../hooks/useLocalStorage';
+
 
 // Interfaz para la respuesta de Hydrawise
 interface HydrawiseController {
@@ -18,7 +18,20 @@ interface HydrawiseZone {
 }
 
 export default function Controladores() {
-  const [apiKey, setApiKey] = useLocalStorage('hydrawise_api_key', 'e429-b649-3d97-5f25');
+  const [apiKey, setApiKey] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('hydrawise_api_key');
+      return item ? JSON.parse(item) : 'e429-b649-3d97-5f25';
+    } catch {
+      return 'e429-b649-3d97-5f25';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('hydrawise_api_key', JSON.stringify(apiKey));
+    } catch {}
+  }, [apiKey]);
   const [controllers, setControllers] = useState<HydrawiseController[]>([]);
   const [zones, setZones] = useState<HydrawiseZone[]>([]);
   const [loading, setLoading] = useState(false);

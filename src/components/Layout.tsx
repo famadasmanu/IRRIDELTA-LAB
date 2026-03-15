@@ -23,25 +23,47 @@ import {
   Wifi
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 
 export default function Layout({ onLogout }: { onLogout: () => void }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
-  const [companyData] = useLocalStorage('config_company', {
+  const { data: companyDataRaw } = useFirestoreCollection<any>('config_company');
+  const companyData = companyDataRaw && companyDataRaw.length > 0 ? companyDataRaw[0] : {
     nombre: 'GreenFields Landscapes',
     cuit: '30-12345678-9',
     direccion: 'Av. Libertador 1234, CABA',
     terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
     logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
+  };
+
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('theme_dark');
+      return item ? JSON.parse(item) : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
   });
 
-  const [isDarkMode, setIsDarkMode] = useLocalStorage('theme_dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const [userRole] = useLocalStorage('user_role', 'admin');
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('theme_dark', JSON.stringify(isDarkMode));
+    } catch {}
+  }, [isDarkMode]);
 
-  const [clientesData] = useLocalStorage<any[]>('clientes_data', []);
-  const [portfolioData] = useLocalStorage<any[]>('trabajos_portfolio', []);
-  const [alertasData] = useLocalStorage<any[]>('notificaciones_data', []);
+  const [userRole] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('user_role');
+      return item ? JSON.parse(item) : 'admin';
+    } catch {
+      return 'admin';
+    }
+  });
+
+  const { data: clientesData } = useFirestoreCollection<any>('clientes_data');
+  const { data: portfolioData } = useFirestoreCollection<any>('trabajos_portfolio');
+  const { data: alertasData } = useFirestoreCollection<any>('notificaciones_data');
 
   // Compute Badges
   const activeAccountsCount = clientesData.filter(c => c.status === 'EN PROCESO').length;

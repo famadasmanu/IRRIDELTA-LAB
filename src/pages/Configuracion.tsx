@@ -1,34 +1,73 @@
 import React, { useState, useRef } from 'react';
 import { User, Bell, Shield, Palette, Save, Check, Building2, ChevronRight, LogOut, Image as ImageIcon, Store, FileText, DollarSign as Currency, Globe, Ruler, Lock, Fingerprint, HelpCircle, MapPin, Edit2, Settings, Pencil, Upload } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
-import { useLocalStorage } from '@/src/hooks/useLocalStorage';
+import { cn } from '../lib/utils';
+
 
 export default function Configuracion() {
   const [activeTab, setActiveTab] = useState('menu');
   const [showToast, setShowToast] = useState(false);
 
-  const [profileData, setProfileData] = useLocalStorage('config_profile', {
-    nombre: 'Juan Pérez',
-    email: 'juan@estudio.com',
-    telefono: '+54 11 1234-5678',
-    empresa: 'GreenFields Landscapes',
-    rol: 'Administrador',
-    avatar: ''
+  const [profileData, setProfileData] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('config_profile');
+      return item ? JSON.parse(item) : {
+        nombre: 'Juan Pérez',
+        email: 'juan@estudio.com',
+        telefono: '+54 11 1234-5678',
+        empresa: 'GreenFields Landscapes',
+        rol: 'Administrador',
+        avatar: ''
+      };
+    } catch {
+      return {
+        nombre: 'Juan Pérez',
+        email: 'juan@estudio.com',
+        telefono: '+54 11 1234-5678',
+        empresa: 'GreenFields Landscapes',
+        rol: 'Administrador',
+        avatar: ''
+      };
+    }
   });
 
-  const [companyData, setCompanyData] = useLocalStorage('config_company', {
-    nombre: 'GreenFields Landscapes',
-    cuit: '30-12345678-9',
-    direccion: 'Av. Libertador 1234, CABA',
-    terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
-    logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
+  const [companyData, setCompanyData] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('config_company');
+      return item ? JSON.parse(item) : {
+        nombre: 'GreenFields Landscapes',
+        cuit: '30-12345678-9',
+        direccion: 'Av. Libertador 1234, CABA',
+        terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
+        logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
+      };
+    } catch {
+      return {
+        nombre: 'GreenFields Landscapes',
+        cuit: '30-12345678-9',
+        direccion: 'Av. Libertador 1234, CABA',
+        terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
+        logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
+      };
+    }
   });
 
-  const [preferences, setPreferences] = useLocalStorage('config_preferences', {
-    currency: 'ARS',
-    language: 'Español',
-    units: 'Metric',
-    dateFormat: 'DD/MM/YYYY'
+  const [preferences, setPreferences] = useState(() => {
+    try {
+      const item = window.localStorage.getItem('config_preferences');
+      return item ? JSON.parse(item) : {
+        currency: 'ARS',
+        language: 'Español',
+        units: 'Metric',
+        dateFormat: 'DD/MM/YYYY'
+      };
+    } catch {
+      return {
+        currency: 'ARS',
+        language: 'Español',
+        units: 'Metric',
+        dateFormat: 'DD/MM/YYYY'
+      };
+    }
   });
 
   const [isDragging, setIsDragging] = useState(false);
@@ -133,6 +172,11 @@ export default function Configuracion() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      window.localStorage.setItem('config_profile', JSON.stringify(profileData));
+      window.localStorage.setItem('config_company', JSON.stringify(companyData));
+      window.localStorage.setItem('config_preferences', JSON.stringify(preferences));
+    } catch {}
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
