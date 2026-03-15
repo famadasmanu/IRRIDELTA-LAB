@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Share2, ZoomIn, Maximize, Info, ShoppingCart, Map as MapIcon, Package, User, Square, Layers, Ruler, FolderOpen, Eye, BarChart2, Settings, Home, Activity, CheckCircle, Upload, Trash2, MapPin, Sun, Droplets, Navigation, Check, SplitSquareHorizontal, Download, Sparkles, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Share2, ZoomIn, Maximize, Minimize, Smartphone, Info, ShoppingCart, Map as MapIcon, Package, User, Square, Layers, Ruler, FolderOpen, Eye, BarChart2, Settings, Home, Activity, CheckCircle, Upload, Trash2, MapPin, Sun, Droplets, Navigation, Check, SplitSquareHorizontal, Download, Sparkles, AlertTriangle, Merge, Plus, Camera, Save, Image as ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import jsPDF from 'jspdf';
@@ -15,6 +15,17 @@ export default function Calculadora() {
   const [currentPipeSize, setCurrentPipeSize] = useState('32mm');
   const [caudal, setCaudal] = useState('');
   const [material, setMaterial] = useState('PVC Clase 10');
+
+  // Conversor Emisores & Zonas
+  const [emitterBrand, setEmitterBrand] = useState('Hunter');
+  const [emitterModel, setEmitterModel] = useState('Rotor PGP-ADJ');
+  const [emitterSubType, setEmitterSubType] = useState('Boquilla #2.0');
+  const [emitterAngle, setEmitterAngle] = useState('180');
+  const [emitterCount, setEmitterCount] = useState<number | ''>(1);
+  const [currentZoneName, setCurrentZoneName] = useState('Zona 1');
+  const [currentZonePhoto, setCurrentZonePhoto] = useState<string | null>(null);
+  const [currentEmitters, setCurrentEmitters] = useState<any[]>([]);
+  const [zonasGuardadas, setZonasGuardadas] = useState<any[]>([]);
 
   // Factores Ambientales
   const [sustrato, setSustrato] = useState('Franco');
@@ -46,6 +57,10 @@ export default function Calculadora() {
   const [autoTelescopico, setAutoTelescopico] = useState(false);
   const [iaAlerts, setIaAlerts] = useState<{ id: number, type: 'warning'|'error'|'info'|'success', message: string }[]>([]);
   const [procesandoPlano, setProcesandoPlano] = useState(false);
+
+  // Vistas del Visualizador
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
 
   const agregarAlertaIa = (type: 'warning'|'error'|'info'|'success', message: string) => {
     setIaAlerts(prev => {
@@ -534,67 +549,400 @@ export default function Calculadora() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Inputs & Analysis */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Asistente IA Copiloto */}
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-5 shadow-sm border border-indigo-100 relative overflow-hidden">
-            <div className="absolute top-0 right-0 origin-top-right transform scale-150 -translate-y-4 translate-x-4 text-indigo-500/5 pointer-events-none">
-               <Sparkles size={120} />
-            </div>
-            
-            <div className="flex items-center justify-between mb-4 relative z-10">
-              <h3 className="text-lg font-bold text-indigo-900 flex items-center gap-2">
-                <Sparkles className="text-indigo-600" size={20} />
-                Copiloto Pro
-              </h3>
-              <label className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input type="checkbox" className="sr-only" checked={copilotoActivo} onChange={() => setCopilotoActivo(!copilotoActivo)} />
-                  <div className={`block w-10 h-6 rounded-full transition-colors ${copilotoActivo ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
-                  <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${copilotoActivo ? 'transform translate-x-4' : ''}`}></div>
-                </div>
-              </label>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column (Main Focus): PDF Viewer & Map */}
+        <div className={`lg:col-span-8 order-1 flex flex-col gap-6 w-full ${isFullscreen ? 'z-[100]' : ''}`}>
+          {/* Main Visualizer */}
+          <div className={
+            isFullscreen ? 'fixed inset-0 z-[100] bg-slate-200 flex flex-col h-screen w-screen transition-all duration-300' :
+            isMobileView ? 'bg-white shadow-2xl border-[12px] border-slate-800 rounded-[2.5rem] mx-auto w-full max-w-[375px] h-[812px] overflow-hidden flex flex-col relative transition-all duration-500' :
+            'bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[450px] lg:h-[700px] relative transition-all duration-500'
+          }>
+            {/* Toolbar */}
+            <div className="flex items-center justify-between p-3 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => document.getElementById('pdf-upload')?.click()}
+                  className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <Upload size={16} />
+                  Subir Plano/PDF
+                </button>
+                <input
+                  id="pdf-upload"
+                  type="file"
+                  accept="application/pdf,image/*"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                 {/* Mini IA Toggle in Toolbar for cleaner UI */}
+                 <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 mr-4">
+                   <Sparkles size={14} className="text-indigo-600" />
+                   <span className="text-xs font-bold text-indigo-900">Copiloto IA</span>
+                   <label className="flex items-center cursor-pointer ml-1">
+                     <div className="relative">
+                       <input type="checkbox" className="sr-only" checked={copilotoActivo} onChange={() => setCopilotoActivo(!copilotoActivo)} />
+                       <div className={`block w-7 h-4 rounded-full transition-colors ${copilotoActivo ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                       <div className={`dot absolute left-[2px] top-[2px] bg-white w-3 h-3 rounded-full transition-transform ${copilotoActivo ? 'transform translate-x-3' : ''}`}></div>
+                     </div>
+                   </label>
+                 </div>
+                <button 
+                  onClick={() => { setIsMobileView(!isMobileView); setIsFullscreen(false); }}
+                  className={`p-1.5 rounded-lg transition-colors ${isMobileView ? 'bg-[#3A5F4B] text-white' : 'text-slate-500 hover:bg-white hover:text-[#3A5F4B]'}`}
+                  title="Vista Simulación Móvil"
+                >
+                  <Smartphone size={18} />
+                </button>
+                <button 
+                  onClick={() => { setIsFullscreen(!isFullscreen); setIsMobileView(false); }}
+                  className={`p-1.5 rounded-lg transition-colors ${isFullscreen ? 'bg-[#3A5F4B] text-white' : 'text-slate-500 hover:bg-white hover:text-[#3A5F4B]'}`}
+                  title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
+                >
+                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                </button>
+              </div>
             </div>
 
-            {copilotoActivo && (
-               <div className="space-y-4 animate-in fade-in slide-in-from-top-2 relative z-10">
-                 <div className="flex items-center justify-between bg-white/60 backdrop-blur rounded-xl p-3 border border-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer" onClick={() => setAutoTelescopico(!autoTelescopico)}>
-                   <div className="flex flex-col">
-                     <span className="text-sm font-bold text-indigo-900 leading-tight">Auto-Telescópico</span>
-                     <span className="text-[10px] text-indigo-700/80 font-medium">Auto-Ajuste de diámetros</span>
-                   </div>
-                   <div className={`flex items-center justify-center w-5 h-5 rounded border ${autoTelescopico ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-indigo-300'}`}>
-                     {autoTelescopico && <Check size={14} className="text-white" />}
+            {/* Viewer Area */}
+            <div className="flex-1 bg-slate-200 relative overflow-hidden group" ref={containerRef}>
+              {showCalibrationModal && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                  <h4 className="font-bold text-slate-800 text-sm">Distancia de los dos puntos marcados:</h4>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="number"
+                      value={calibrationDistanceInput}
+                      onChange={(e) => setCalibrationDistanceInput(e.target.value)}
+                      placeholder="Ej. 10.5"
+                      className="w-24 h-9 px-3 border border-slate-200 rounded-lg outline-none focus:border-[#3A5F4B] text-center font-bold text-[#3A5F4B]"
+                      autoFocus
+                    />
+                    <span className="text-slate-500 font-bold">m</span>
+                  </div>
+                  <div className="flex gap-2 w-full mt-1">
+                    <button onClick={() => { setShowCalibrationModal(false); setCalibrationNodes([]); }} className="flex-1 bg-slate-100 text-slate-600 font-bold py-2 rounded-lg hover:bg-slate-200 text-xs transition-colors">Cancelar</button>
+                    <button onClick={confirmarCalibracion} className="flex-1 bg-[#3A5F4B] text-white font-bold py-2 rounded-lg hover:bg-[#2d4a3a] text-xs transition-colors flex justify-center items-center gap-1"><Check size={14} /> Aplicar</button>
+                  </div>
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center">
+                {showOriginalLayer && (
+                  projectFile ? (
+                    projectFile.startsWith('data:application/pdf') ? (
+                      <embed src={projectFile} type="application/pdf" className="w-full h-full pointer-events-none" />
+                    ) : (
+                      <div className="w-full h-full bg-contain bg-center bg-no-repeat pointer-events-none" style={{ backgroundImage: `url('${projectFile}')` }}></div>
+                    )
+                  ) : (
+                    <div className="w-full h-full bg-cover bg-center opacity-90 pointer-events-none" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDQXLVZgcvUmvYtvAADhqAZOdzy8wdrkDLnPoG44zl1lXoMXwu_GNX2i3FOrVaCmVOuX0xbKH5btV1HWefgk2YTu1JEtIKB76_Yv3OIfOXOaA5YymdqIMvgRyNdrgNNCcR_temvJ_2AUbRHuYopy4yoXd7MqIO5X6K0I-OvuW3KMAOYOli49LlfNfrQC-chdgznvVqAIXnp_CZ9Il0cUPjpsm5F6lMqxEQjKT6KTBo3V833PBmZQCeGF2IK9z-Go7Lxr5opBZmaxaA')" }}></div>
+                  )
+                )}
+
+                <canvas
+                  ref={canvasRef}
+                  onClick={handleCanvasClick}
+                  className={`absolute inset-0 z-10 ${isDrawingMode ? 'cursor-crosshair' : 'cursor-default'}`}
+                />
+
+                {(!projectFile || !projectFile.startsWith('data:application/pdf')) && !isDrawingMode && nodes.length === 0 && (
+                  <div className="absolute inset-0 bg-[#3A5F4B]/5 pointer-events-none"></div>
+                )}
+              </div>
+
+              {/* Floating Tools */}
+              <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+                <button
+                  onClick={() => {
+                    setIsCalibrating(!isCalibrating);
+                    setIsDrawingMode(false);
+                    if (!isCalibrating) {
+                      setCalibrationNodes([]);
+                      alert('Haga click en dos puntos del plano actual para definir una medida real conocida. (Se trazará una línea punteada y luego le preguntaremos la distancia)');
+                    }
+                  }}
+                  className={`p-2 rounded-xl shadow-lg transition-colors ${isCalibrating ? 'bg-[#F27D26] text-white animate-pulse' : 'bg-[#3A5F4B] text-white hover:bg-[#2d4a3a]'}`}
+                  title={isCalibrating ? "Cancelando calibración..." : "Calibrar escala geométrica de este plano"}
+                >
+                  <Navigation size={20} />
+                </button>
+                <button
+                  onClick={() => { setIsDrawingMode(!isDrawingMode); setIsCalibrating(false); }}
+                  className={`p-2 rounded-xl shadow-lg transition-colors ${isDrawingMode ? 'bg-[#F27D26] text-white' : 'bg-[#3A5F4B] text-white hover:bg-[#2d4a3a]'}`}
+                  title={isDrawingMode ? "Desactivar dibujo de nodos" : "Dibujar nodos de tubería"}
+                >
+                  <Ruler size={20} />
+                </button>
+                <button
+                  onClick={() => setShowOriginalLayer(!showOriginalLayer)}
+                  className={`p-2 rounded-xl shadow-sm border transition-colors ${showOriginalLayer ? 'bg-white/90 text-[#3A5F4B] border-slate-200' : 'bg-slate-200 text-slate-400 border-slate-300'}`}
+                  title="Alternar capa original (Plano)"
+                >
+                  <Eye size={20} />
+                </button>
+                <button
+                  onClick={() => setShowDrawingLayer(!showDrawingLayer)}
+                  className={`p-2 rounded-xl shadow-sm border transition-colors ${showDrawingLayer ? 'bg-white/90 text-[#3A5F4B] border-slate-200' : 'bg-slate-200 text-slate-400 border-slate-300'}`}
+                  title="Alternar capa de dibujo (Nodos)"
+                >
+                  <Layers size={20} />
+                </button>
+                {nodes.length > 0 && (
+                  <button
+                    onClick={() => { setNodes([]); setTotalDistance(0); }}
+                    className="bg-white/90 text-red-500 p-2 rounded-xl shadow-sm border border-slate-200 hover:bg-red-50 transition-colors"
+                    title="Borrar nodos"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                )}
+              </div>
+
+               {/* Smart Alerts IA Layer (Only shows if copiloto is ON and there are alerts) */}
+               {copilotoActivo && iaAlerts.length > 0 && (
+                  <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 max-w-sm pointer-events-none">
+                     {iaAlerts.map(al => (
+                        <div key={al.id} className={`flex items-start gap-2 p-3 rounded-xl text-xs font-semibold shadow-2xl pointer-events-auto border animate-in fade-in slide-in-from-left-4 ${al.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : al.type === 'warning' ? 'bg-orange-50 text-orange-800 border-orange-200' : al.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-white/90 backdrop-blur text-indigo-800 border-indigo-200'}`}>
+                           {al.type === 'error' ? <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" /> : al.type === 'success' ? <CheckCircle size={16} className="mt-0.5 flex-shrink-0" /> : <Info size={16} className="mt-0.5 flex-shrink-0" />}
+                           <span className="leading-tight">{al.message}</span>
+                        </div>
+                     ))}
+                  </div>
+               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (Controls): Zone Builder & Parameters */}
+        <div className="lg:col-span-4 lg:row-span-2 order-2 flex flex-col gap-6 w-full">
+
+          {/* Constructor de Zonas Card */}
+          <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
+            <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Droplets className="text-[#3A5F4B]" size={20} />
+              Constructor de Zonas de Riego
+            </h3>
+            <p className="text-xs text-slate-500 mb-5 font-medium leading-relaxed">Configurá las zonas agrupando emisores precisos de Hunter o Rain Bird, especificando ángulos y modelos.</p>
+
+            {/* Crear Zona Activa */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-5">
+               <div className="flex gap-3 mb-4 items-center">
+                 <div className="flex-1">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Nombre de la Zona</label>
+                   <input type="text" value={currentZoneName} onChange={(e) => setCurrentZoneName(e.target.value)} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white focus:bg-white focus:border-[#3A5F4B] text-sm font-bold text-slate-800 outline-none transition-all" />
+                 </div>
+                 <div className="flex flex-col items-center">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Foto</label>
+                   <button onClick={() => {
+                     const url = prompt("Pegue la URL de la foto de la zona (ej. desde Google Photos o Imgur):", "https://i.imgur.com/vHq0gO7.jpeg");
+                     if(url) setCurrentZonePhoto(url);
+                   }} className="h-10 w-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-all">
+                     {currentZonePhoto ? <ImageIcon size={18} className="text-[#3A5F4B]" /> : <Camera size={18} />}
+                   </button>
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 mb-3">
+                  <div className="flex flex-col gap-1 lg:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Marca</label>
+                    <select value={emitterBrand} onChange={(e) => {
+                      const brand = e.target.value;
+                      setEmitterBrand(brand);
+                      if (brand === 'Hunter') {
+                        setEmitterModel('Rotor PGP-ADJ');
+                        setEmitterSubType('Boquilla #2.0');
+                      } else {
+                        setEmitterModel('Rotor 5004');
+                        setEmitterSubType('Boquilla #2.0');
+                      }
+                    }} className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none hover:border-[#3A5F4B]">
+                      <option>Hunter</option>
+                      <option>Rain Bird</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 lg:col-span-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Modelo</label>
+                    <select value={emitterModel} onChange={(e) => {
+                      const mod = e.target.value;
+                      setEmitterModel(mod);
+                      if(mod.includes('Pro-Spray') || mod.includes('Tobera')) setEmitterSubType('Tobera PSU 17A');
+                      else if(mod.includes('MP Rotator')) setEmitterSubType('MP 2000');
+                      else if(mod.includes('R-VAN')) setEmitterSubType('R-VAN 18');
+                      else if(mod.includes('HE-VAN')) setEmitterSubType('HE-VAN 15');
+                      else setEmitterSubType('Boquilla #2.0');
+                    }} className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none hover:border-[#3A5F4B]">
+                      {emitterBrand === 'Hunter' ? (
+                        <>
+                          <option>Rotor PGP-ADJ</option>
+                          <option>Rotor PGP-Ultra</option>
+                          <option>Rotor I-20</option>
+                          <option>Rotor PGJ</option>
+                          <option>MP Rotator (Boquilla)</option>
+                          <option>Tobera Pro-Spray / PSU</option>
+                        </>
+                      ) : (
+                        <>
+                          <option>Rotor 5004</option>
+                          <option>Rotor 3504</option>
+                          <option>Rotor 8005</option>
+                          <option>Boquilla R-VAN</option>
+                          <option>Boquilla HE-VAN / 1800</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 lg:col-span-3">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Tipo/Tobera</label>
+                    <select value={emitterSubType} onChange={(e) => setEmitterSubType(e.target.value)} className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none hover:border-[#3A5F4B]">
+                      {emitterModel.includes('Rotor') ? (
+                        <>
+                          <option>Boquilla #1.0</option>
+                          <option>Boquilla #1.5</option>
+                          <option>Boquilla #2.0</option>
+                          <option>Boquilla #3.0</option>
+                          <option>Boquilla #4.0</option>
+                        </>
+                      ) : emitterModel.includes('Pro-Spray') ? (
+                        <>
+                          <option>Tobera PSU 10A</option>
+                          <option>Tobera PSU 12A</option>
+                          <option>Tobera PSU 15A</option>
+                          <option>Tobera PSU 17A</option>
+                        </>
+                      ) : emitterModel.includes('MP Rotator') ? (
+                        <>
+                          <option>MP 1000</option>
+                          <option>MP 2000</option>
+                          <option>MP 3000</option>
+                          <option>MP 3500</option>
+                        </>
+                      ) : emitterModel.includes('R-VAN') ? (
+                        <>
+                          <option>R-VAN 14</option>
+                          <option>R-VAN 18</option>
+                          <option>R-VAN 24</option>
+                        </>
+                      ) : (
+                        <>
+                          <option>HE-VAN 10</option>
+                          <option>HE-VAN 12</option>
+                          <option>HE-VAN 15</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 lg:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">Ángulo</label>
+                    <select value={emitterAngle} onChange={(e) => setEmitterAngle(e.target.value)} className="w-full h-9 px-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none hover:border-[#3A5F4B]">
+                      <option value="90">90°</option>
+                      <option value="180">180°</option>
+                      <option value="270">270°</option>
+                      <option value="360">360°</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 lg:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1 text-center">Cantidad</label>
+                    <div className="flex bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm hover:border-[#3A5F4B] focus-within:border-[#3A5F4B] transition-colors h-9">
+                      <input type="number" min="1" value={emitterCount} onChange={(e) => setEmitterCount(e.target.value ? parseInt(e.target.value) : '')} placeholder="1" className="w-full min-w-[30px] h-full px-2 text-xs font-extrabold text-[#3A5F4B] outline-none text-center bg-transparent" />
+                      <button onClick={() => {
+                        const lpm90Rates: Record<string, number> = {
+                          'Rotor PGP-ADJ': 2.5, 'Rotor PGP-Ultra': 2.8, 'Rotor I-20': 3.0, 'Rotor PGJ': 1.5, 'MP Rotator (Boquilla)': 0.8, 'Tobera Pro-Spray / PSU': 1.5,
+                          'Rotor 5004': 2.8, 'Rotor 3504': 1.6, 'Rotor 8005': 8.0, 'Boquilla R-VAN': 0.9, 'Boquilla HE-VAN / 1800': 1.6
+                        };
+                        const base = lpm90Rates[emitterModel] || 1.5;
+                        const subMultiplier = emitterSubType.includes('#3.0') || emitterSubType.includes('17A') || emitterSubType.includes('MP 3000') ? 1.5 : 1;
+                        const lpm = (base * (parseInt(emitterAngle) / 90)) * (emitterCount || 1) * subMultiplier;
+                        const nE = { id: Date.now().toString(), brand: emitterBrand, model: emitterModel, subType: emitterSubType, angle: emitterAngle, count: emitterCount || 1, lpm };
+                        setCurrentEmitters([...currentEmitters, nE]);
+                        setEmitterCount(1);
+                      }} className="w-12 shrink-0 h-full flex items-center justify-center bg-[#3A5F4B] text-white hover:bg-[#2d4a3a] transition-colors border-l border-slate-200"><Plus size={16} strokeWidth={3}/></button>
+                    </div>
+                  </div>
+               </div>
+
+               {currentEmitters.length > 0 && (
+                 <div className="mb-4">
+                   <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 border-b border-slate-200 pb-1">Emisores Agregados a {currentZoneName}</h4>
+                   <ul className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                     {currentEmitters.map(em => (
+                       <li key={em.id} className="flex justify-between items-center bg-white border border-slate-100 p-2 rounded-lg text-xs shadow-sm">
+                         <span className="font-bold text-slate-700">{em.count}x {em.model} <span className="text-[#F27D26] font-black">{em.subType}</span> ({em.angle}°)</span>
+                         <div className="flex items-center gap-3">
+                           <span className="text-[#3A5F4B] font-bold">{em.lpm.toFixed(1)} L/M</span>
+                           <button onClick={() => setCurrentEmitters(currentEmitters.filter(e => e.id !== em.id))} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
+                         </div>
+                       </li>
+                     ))}
+                   </ul>
+                   <div className="mt-2 text-right">
+                     <span className="text-xs font-bold text-slate-500">Total Pre-calculado: </span>
+                     <span className="text-sm font-black text-[#3A5F4B]">{currentEmitters.reduce((acc, curr) => acc + curr.lpm, 0).toFixed(1)} L/min</span>
                    </div>
                  </div>
+               )}
 
-                 <button 
-                   onClick={analizarPlanoCopiloto}
-                   className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm text-sm"
-                 >
-                   {procesandoPlano ? <Activity className="animate-spin" size={16} /> : <Eye size={16} />}
-                   {procesandoPlano ? "Analizando geometría IA..." : "Detectar Áreas Verdes (Auto-Sectorizar)"}
-                 </button>
+               <button onClick={() => {
+                 if(currentEmitters.length === 0) return alert("Agregue al menos un emisor a la zona.");
+                 const tLpm = currentEmitters.reduce((acc, curr) => acc + curr.lpm, 0);
+                 const nZ = { id: Date.now().toString(), name: currentZoneName, photo: currentZonePhoto, emitters: [...currentEmitters], totalLpm: tLpm };
+                 setZonasGuardadas([...zonasGuardadas, nZ]);
+                 setCurrentEmitters([]);
+                 setCurrentZoneName('Zona ' + (zonasGuardadas.length + 2));
+                 setCurrentZonePhoto(null);
+                 setIaAlerts(prev => [{ id: Date.now(), type: 'success' as const, message: '✅ Zona guardada y catalogada correctamente.' }, ...prev].slice(0, 3));
+               }} className="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl hover:bg-slate-900 transition-transform shadow-sm flex items-center justify-center gap-2 text-sm disabled:opacity-50" disabled={currentEmitters.length === 0}>
+                 <Save size={16} /> Guardar Zona Definitiva
+               </button>
+            </div>
 
-                 {iaAlerts.length > 0 && (
-                   <div className="mt-4 flex flex-col gap-2">
-                     <div className="flex items-center justify-between">
-                       <span className="text-[10px] font-bold text-indigo-900/50 uppercase tracking-wider">Últimos Alertas en Vivo</span>
-                       <button onClick={() => setIaAlerts([])} className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold">Limpiar</button>
-                     </div>
-                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1 hide-scrollbar">
-                       {iaAlerts.map(al => (
-                         <div key={al.id} className={`flex items-start gap-2 p-2.5 rounded-xl text-[11px] leading-snug font-medium border animate-in fade-in slide-in-from-right-2 ${al.type === 'error' ? 'bg-red-50 text-red-800 border-red-100' : al.type === 'warning' ? 'bg-orange-50 text-orange-800 border-orange-100' : al.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-100' : 'bg-blue-50 text-blue-800 border-blue-100'}`}>
-                           {al.type === 'error' ? <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" /> : al.type === 'success' ? <CheckCircle size={14} className="mt-0.5 flex-shrink-0" /> : <Info size={14} className="mt-0.5 flex-shrink-0" />}
-                           <span>{al.message}</span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
-                 )}
-               </div>
+            {/* Listado de Zonas Guardadas */}
+            {zonasGuardadas.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Zonas Configuradas en Proyecto</h4>
+                {zonasGuardadas.map(zona => (
+                  <div key={zona.id} className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                    <div className="flex items-center justify-between p-3 bg-white border-b border-slate-100">
+                      <div className="flex items-center gap-3">
+                        {zona.photo ? (
+                          <img src={zona.photo} alt="zona" className="w-10 h-10 object-cover rounded-lg shadow-sm border border-slate-200" />
+                        ) : (
+                          <div className="w-10 h-10 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400"><ImageIcon size={18} /></div>
+                        )}
+                        <div>
+                          <h5 className="font-bold text-sm text-slate-800">{zona.name}</h5>
+                          <span className="text-[10px] font-bold text-[#3A5F4B] bg-[#3A5F4B]/10 px-1.5 py-0.5 rounded-md">{zona.emitters.length} tipos de emisores</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => {
+                          setCaudal(zona.totalLpm.toFixed(2));
+                          setIaAlerts(prev => [{ id: Date.now(), type: 'info' as const, message: `Inyectando caudal de ${zona.name} (${zona.totalLpm.toFixed(1)} L/M) al módulo calc.` }, ...prev].slice(0, 3));
+                        }} className="px-2 py-1.5 bg-[#F27D26]/10 text-[#F27D26] hover:bg-[#F27D26]/20 font-bold text-[10px] uppercase rounded-lg border border-[#F27D26]/20 flex items-center gap-1 transition-colors shadow-sm" title="Inyectar a la calculadora principal">
+                          <Merge size={12} /> Trazar
+                        </button>
+                        <button onClick={() => setZonasGuardadas(zonasGuardadas.filter(z => z.id !== zona.id))} className="p-1.5 text-slate-400 hover:text-red-500 transition-colors bg-white rounded-lg border border-slate-200 shadow-sm">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-3">
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {zona.emitters.map((e:any, i:number) => (
+                          <span key={i} className="text-[10px] bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-600 font-medium whitespace-nowrap shadow-sm">
+                            {e.count}x {e.model} <span className="text-[#F27D26] font-bold">{e.subType}</span> ({e.angle}°)
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center text-xs mt-2 border-t border-slate-200/50 pt-2">
+                         <span className="text-slate-500 font-medium">Consumo Nominal:</span>
+                         <span className="font-black text-slate-800">{zona.totalLpm.toFixed(1)} <span className="text-slate-500 font-medium">L/min</span></span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -791,215 +1139,148 @@ export default function Calculadora() {
           </div>
         </div>
 
-        {/* Right Column: PDF Viewer / Plano */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[600px]">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between p-3 border-b border-slate-100 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => document.getElementById('pdf-upload')?.click()}
-                  className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                  <Upload size={16} />
-                  Subir Plano/PDF
-                </button>
-                <input
-                  id="pdf-upload"
-                  type="file"
-                  accept="application/pdf,image/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
+      {/* Assistants / Non-prioritized content moved below Viewer (Bottom Left Margin filled) */}
+      <div className="lg:col-span-8 order-3 grid grid-cols-1 md:grid-cols-2 gap-6 opacity-95 hover:opacity-100 transition-opacity w-full">
+          {/* Analysis Card */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart2 className="text-[#3A5F4B]" size={20} />
+              <h3 className="text-lg font-bold text-slate-900">Métricas Finales</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Pérdida Carga</p>
+                <p className="text-[#3A5F4B] text-xl font-bold">{resultados ? resultados.perdida : '-'}</p>
               </div>
-              <div className="flex items-center gap-1">
-                <button className="p-1.5 text-slate-500 hover:bg-white hover:text-[#3A5F4B] rounded-lg transition-colors">
-                  <ZoomIn size={18} />
-                </button>
-                <button className="p-1.5 text-slate-500 hover:bg-white hover:text-[#3A5F4B] rounded-lg transition-colors">
-                  <Maximize size={18} />
-                </button>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Velocidad</p>
+                <p className="text-[#3A5F4B] text-xl font-bold">{resultados ? resultados.velocidad : '-'}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Caudal Total</p>
+                <p className="text-[#3A5F4B] text-xl font-bold">{resultados ? resultados.caudalTotal : '-'}</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">Diámetro</p>
+                <p className="text-[#3A5F4B] text-xl font-bold">{resultados ? resultados.diametro : '-'}</p>
               </div>
             </div>
 
-            {/* Viewer Area */}
-            <div className="flex-1 bg-slate-200 relative overflow-hidden group" ref={containerRef}>
-              {showCalibrationModal && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                  <h4 className="font-bold text-slate-800 text-sm">Distancia de los dos puntos marcados:</h4>
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="number"
-                      value={calibrationDistanceInput}
-                      onChange={(e) => setCalibrationDistanceInput(e.target.value)}
-                      placeholder="Ej. 10.5"
-                      className="w-24 h-9 px-3 border border-slate-200 rounded-lg outline-none focus:border-[#3A5F4B] text-center font-bold text-[#3A5F4B]"
-                      autoFocus
-                    />
-                    <span className="text-slate-500 font-bold">m</span>
-                  </div>
-                  <div className="flex gap-2 w-full mt-1">
-                    <button onClick={() => { setShowCalibrationModal(false); setCalibrationNodes([]); }} className="flex-1 bg-slate-100 text-slate-600 font-bold py-2 rounded-lg hover:bg-slate-200 text-xs transition-colors">Cancelar</button>
-                    <button onClick={confirmarCalibracion} className="flex-1 bg-[#3A5F4B] text-white font-bold py-2 rounded-lg hover:bg-[#2d4a3a] text-xs transition-colors flex justify-center items-center gap-1"><Check size={14} /> Aplicar</button>
-                  </div>
-                </div>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center">
-                {showOriginalLayer && (
-                  projectFile ? (
-                    projectFile.startsWith('data:application/pdf') ? (
-                      <embed src={projectFile} type="application/pdf" className="w-full h-full pointer-events-none" />
-                    ) : (
-                      <div className="w-full h-full bg-contain bg-center bg-no-repeat pointer-events-none" style={{ backgroundImage: `url('${projectFile}')` }}></div>
-                    )
-                  ) : (
-                    <div className="w-full h-full bg-cover bg-center opacity-90 pointer-events-none" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDQXLVZgcvUmvYtvAADhqAZOdzy8wdrkDLnPoG44zl1lXoMXwu_GNX2i3FOrVaCmVOuX0xbKH5btV1HWefgk2YTu1JEtIKB76_Yv3OIfOXOaA5YymdqIMvgRyNdrgNNCcR_temvJ_2AUbRHuYopy4yoXd7MqIO5X6K0I-OvuW3KMAOYOli49LlfNfrQC-chdgznvVqAIXnp_CZ9Il0cUPjpsm5F6lMqxEQjKT6KTBo3V833PBmZQCeGF2IK9z-Go7Lxr5opBZmaxaA')" }}></div>
-                  )
-                )}
-
-                {/* Canvas Overlay for Drawing */}
-                <canvas
-                  ref={canvasRef}
-                  onClick={handleCanvasClick}
-                  className={`absolute inset-0 z-10 ${isDrawingMode ? 'cursor-crosshair' : 'cursor-default'}`}
-                />
-
-                {/* Overlay UI elements (only show if no custom file or if it's an image) */}
-                {(!projectFile || !projectFile.startsWith('data:application/pdf')) && !isDrawingMode && nodes.length === 0 && (
-                  <>
-                    <div className="absolute inset-0 bg-[#3A5F4B]/5 pointer-events-none"></div>
-                  </>
-                )}
+            {resultados?.recomendacion && (
+              <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                <p className="text-sm text-blue-800 flex items-start gap-2">
+                  <Info size={16} className="mt-0.5 flex-shrink-0" />
+                  <span>{resultados.recomendacion}</span>
+                </p>
               </div>
+            )}
 
-              {/* Floating Tools */}
-              <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
-                <button
-                  onClick={() => {
-                    setIsCalibrating(!isCalibrating);
-                    setIsDrawingMode(false);
-                    if (!isCalibrating) {
-                      setCalibrationNodes([]);
-                      alert('Haga click en dos puntos del plano actual para definir una medida real conocida. (Se trazará una línea punteada y luego le preguntaremos la distancia)');
-                    }
-                  }}
-                  className={`p-2 rounded-xl shadow-lg transition-colors ${isCalibrating ? 'bg-[#F27D26] text-white animate-pulse' : 'bg-[#3A5F4B] text-white hover:bg-[#2d4a3a]'}`}
-                  title={isCalibrating ? "Cancelando calibración..." : "Calibrar escala geométrica de este plano"}
-                >
-                  <Navigation size={20} />
-                </button>
-                <button
-                  onClick={() => { setIsDrawingMode(!isDrawingMode); setIsCalibrating(false); }}
-                  className={`p-2 rounded-xl shadow-lg transition-colors ${isDrawingMode ? 'bg-[#F27D26] text-white' : 'bg-[#3A5F4B] text-white hover:bg-[#2d4a3a]'}`}
-                  title={isDrawingMode ? "Desactivar dibujo de nodos" : "Dibujar nodos de tubería"}
-                >
-                  <Ruler size={20} />
-                </button>
-                <button
-                  onClick={() => setShowOriginalLayer(!showOriginalLayer)}
-                  className={`p-2 rounded-xl shadow-sm border transition-colors ${showOriginalLayer ? 'bg-white/90 text-[#3A5F4B] border-slate-200' : 'bg-slate-200 text-slate-400 border-slate-300'}`}
-                  title="Alternar capa original (Plano)"
-                >
-                  <Eye size={20} />
-                </button>
-                <button
-                  onClick={() => setShowDrawingLayer(!showDrawingLayer)}
-                  className={`p-2 rounded-xl shadow-sm border transition-colors ${showDrawingLayer ? 'bg-white/90 text-[#3A5F4B] border-slate-200' : 'bg-slate-200 text-slate-400 border-slate-300'}`}
-                  title="Alternar capa de dibujo (Nodos)"
-                >
-                  <Layers size={20} />
-                </button>
-                {nodes.length > 0 && (
-                  <button
-                    onClick={() => { setNodes([]); setTotalDistance(0); }}
-                    className="bg-white/90 text-red-500 p-2 rounded-xl shadow-sm border border-slate-200 hover:bg-red-50 transition-colors"
-                    title="Borrar nodos"
+            {resultados && (
+              <div className="pt-4 border-t border-slate-100">
+                <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                  <User size={16} className="text-[#3A5F4B]" />
+                  Acciones de Exportación
+                </h4>
+                <div className="flex flex-col gap-3">
+                  <select
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="w-full h-11 px-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-[#3A5F4B] outline-none text-sm transition-all"
                   >
-                    <Trash2 size={20} />
-                  </button>
-                )}
-              </div>
-
-              {/* Smart Extraction Panel */}
-              <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur p-4 rounded-xl border border-slate-200 shadow-xl max-w-md">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-[#3A5F4B] flex items-center gap-2 uppercase tracking-tight">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#3A5F4B] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#3A5F4B]"></span>
-                    </span>
-                    Extracción Inteligente Activa
-                  </span>
-                  <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">Sección B-22</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Longitud Detectada</p>
-                    <p className="text-base font-bold text-[#3A5F4B]">124.50 m</p>
-                  </div>
-                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Dif. Elevación</p>
-                    <p className="text-base font-bold text-[#3A5F4B]">+2.45 m</p>
+                    <option value="">Seleccione un cliente (opcional)...</option>
+                    {clientesData.map((client: any) => (
+                      <option key={client.id} value={client.id}>{client.name} - {client.location}</option>
+                    ))}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleSaveProjectToClient}
+                      className="bg-slate-100 text-[#3A5F4B] border border-[#3A5F4B]/20 font-bold py-2.5 rounded-lg hover:bg-[#3A5F4B]/10 transition-colors flex justify-center items-center gap-1.5 text-[11px] uppercase tracking-wider shadow-sm"
+                    >
+                      <CheckCircle size={14} /> Linkear a CRM
+                    </button>
+                    <button
+                      onClick={handleGeneratePDF}
+                      className="bg-[#3A5F4B] text-white font-bold py-2.5 rounded-lg hover:bg-[#2d4a3a] transition-colors flex justify-center items-center gap-1.5 text-[11px] uppercase tracking-wider shadow-sm"
+                    >
+                      <Download size={14} /> Exportar PDF
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Recommendations Card */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 mb-4">
-              <Package className="text-[#3A5F4B]" size={20} />
-              <h3 className="text-lg font-bold text-slate-900">Productos Recomendados</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Package className="text-[#3A5F4B]" size={20} />
+                <h3 className="text-lg font-bold text-slate-900">Productos Sugeridos</h3>
+              </div>
+              <button
+                onClick={() => navigate('/archivo', { state: { targetTab: 'comparador', originProduct: 'Hunter PGP Ultra' } })}
+                className="text-[10px] font-bold text-[#F27D26] bg-[#F27D26]/10 px-2 py-1 rounded-md uppercase border border-[#F27D26]/20 hover:bg-[#F27D26]/20 transition-colors flex items-center gap-1"
+              >
+                <SplitSquareHorizontal size={12} /> B2B Compare
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-4">
               <div className="flex gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50 hover:border-[#3A5F4B]/30 transition-colors group">
-                <div className="size-20 rounded-lg bg-white shadow-sm flex-shrink-0 flex items-center justify-center overflow-hidden">
+                <div className="size-16 rounded-lg bg-white shadow-sm flex-shrink-0 flex items-center justify-center overflow-hidden">
                   <img className="object-cover size-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7sjnGQIOd3rw8WJaeratdDPLkle3WbmkO6ziXNNMQqBa0BLDB9wjOCYrV8qF3FusJm7RkLlmAfZ7fZOMgeo8Pjz_s_sr4V3J-OPCGxNGpOTX7SM-FM-GYaSfBR3L8SB3E9kfLemYN6fYj7DJRgz8f7nUSl0Wej5NhpQiOf6Qk2eZBCI_y32J57uLqyBpEWUhQyfSO-LTmxbuWY2KkZxFjBq_k2DX2PZ_gQHLjO0CHn-kFSV_ufkIfcitzHrbzmDWZaC6yxrUlZuA" alt="Bomba" />
                 </div>
                 <div className="flex flex-col justify-between py-1 flex-1">
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#3A5F4B] transition-colors">Bomba Centrífuga 1.5HP</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">Proveedor: <span className="text-slate-700 font-semibold">Todo Riego</span></p>
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#3A5F4B] transition-colors leading-tight">Bomba Centrífuga 1.5HP</h4>
+                    <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider font-bold">Todo Riego</p>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-lg font-bold text-[#3A5F4B]">$345.000</p>
+                    <p className="text-base font-black text-[#3A5F4B]">$345.000</p>
                     <button
                       onClick={() => handleAddToCart({ name: 'Bomba Centrífuga 1.5HP', price: 345000, provider: 'Todo Riego' })}
-                      className="text-[#3A5F4B] bg-white p-1.5 rounded-lg shadow-sm border border-slate-200 hover:bg-[#3A5F4B] hover:text-white transition-colors"
+                      className="text-slate-400 bg-white p-1.5 rounded-lg shadow-sm border border-slate-200 hover:bg-[#3A5F4B] hover:text-white transition-colors"
                       title="Agregar a Checklist de Inventario"
                     >
-                      <ShoppingCart size={16} />
+                      <ShoppingCart size={14} />
                     </button>
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-4 p-4 rounded-xl border border-slate-100 bg-slate-50 hover:border-[#3A5F4B]/30 transition-colors group">
-                <div className="size-20 rounded-lg bg-white shadow-sm flex-shrink-0 flex items-center justify-center overflow-hidden">
+                <div className="size-16 rounded-lg bg-white shadow-sm flex-shrink-0 flex items-center justify-center overflow-hidden">
                   <img className="object-cover size-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDJqa7Ijyr597nbHwaMXikvN8aV2QjpqWIZfoHsE96etbNMcIEy3hsFPSh6DTt3a7EKRXsYaDEM7cAt3Hl33XxWkwCJmMydkILBvXcN6H62Zy5_U41iH6YW-c7ETze7ZDwvGsbDbWiZwk8FCBupK9GTNAeknv4mUrg4rapnXWXT96CEvp1W--mpckCZTlvnu4iwBBFninpz6Z8131YzjONAIWxPe08wAFYRc_CHpXoG6B24UWczazU1oHW53ykfq6q_wUOCk3hKyI" alt="Tubería" />
                 </div>
                 <div className="flex flex-col justify-between py-1 flex-1">
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#3A5F4B] transition-colors">Tubería PE 32mm K6 (100m)</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">Proveedor: <span className="text-slate-700 font-semibold">Munditol</span></p>
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#3A5F4B] transition-colors leading-tight">Tubería PE 32mm K6 (100m)</h4>
+                    <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wider font-bold">Munditol</p>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-lg font-bold text-[#3A5F4B]">$120.000</p>
+                    <p className="text-base font-black text-[#3A5F4B]">$120.000</p>
                     <button
                       onClick={() => handleAddToCart({ name: 'Tubería PE 32mm K6 (100m)', price: 120000, provider: 'Munditol' })}
-                      className="text-[#3A5F4B] bg-white p-1.5 rounded-lg shadow-sm border border-slate-200 hover:bg-[#3A5F4B] hover:text-white transition-colors"
+                      className="text-slate-400 bg-white p-1.5 rounded-lg shadow-sm border border-slate-200 hover:bg-[#3A5F4B] hover:text-white transition-colors"
                       title="Agregar a Checklist de Inventario"
                     >
-                      <ShoppingCart size={16} />
+                      <ShoppingCart size={14} />
                     </button>
                   </div>
                 </div>
               </div>
+              
+              <button
+                onClick={handleGenerateAIQuote}
+                className="w-full mt-2 bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold py-2.5 rounded-xl hover:bg-indigo-100 transition-colors flex justify-center items-center gap-2 text-xs shadow-sm"
+              >
+                <Sparkles size={14} /> Presupuestar Lote Completo con IA
+              </button>
             </div>
           </div>
-        </div>
+      </div>
       </div>
 
       {/* Modal Presupuesto IA */}

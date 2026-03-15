@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Leaf, User, Search, CheckCircle2, MapPin, Calendar, Clock, CheckCircle, Phone, Map as MapIcon, Edit2, Trash2, FileText, Plus, X, Droplets, Activity, Grid } from 'lucide-react';
+import { Leaf, User, Search, CheckCircle2, MapPin, Calendar, Clock, CheckCircle, Phone, Map as MapIcon, Edit2, Trash2, FileText, Plus, X, Droplets, Activity, Grid, BarChart, MessageCircle } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { Modal } from '../components/Modal';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -158,6 +158,11 @@ export default function Clientes() {
     }
   };
 
+  const totalClients = clientsData.length;
+  const activeClients = clientsData.filter((c:any) => c.status === 'EN PROCESO').length;
+  const waitingClients = clientsData.filter((c:any) => c.status === 'EN ESPERA').length;
+  const finishedClients = clientsData.filter((c:any) => c.status === 'FINALIZADO').length;
+
   return (
     <div className="flex flex-col font-sans pb-8 max-w-5xl mx-auto w-full">
       {/* Header */}
@@ -229,6 +234,46 @@ export default function Clientes() {
         </div>
       </header>
 
+      {/* KPIs Dashboard */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Clientes</p>
+            <p className="text-2xl font-black text-slate-800">{totalClients}</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500">
+            <User size={20} />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-[#3A5F4B] uppercase tracking-widest mb-1">En Proceso</p>
+            <p className="text-2xl font-black text-slate-800">{activeClients}</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-[#3A5F4B]/10 flex items-center justify-center text-[#3A5F4B]">
+            <Activity size={20} />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">En Espera</p>
+            <p className="text-2xl font-black text-slate-800">{waitingClients}</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+            <Clock size={20} />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Finalizados</p>
+            <p className="text-2xl font-black text-slate-800">{finishedClients}</p>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+            <CheckCircle2 size={20} />
+          </div>
+        </div>
+      </div>
+
       {/* Main Content */}
       <main className="flex-1 w-full flex flex-col">
         {viewMode === 'grid' ? (
@@ -288,11 +333,18 @@ export default function Clientes() {
                     {!client.isFinished ? (
                       <>
                         <button
-                          onClick={() => window.location.href = `tel:${client.phone}`}
-                          className="flex-1 bg-[#3A5F4B] text-white py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-sm active:scale-95 transition-all hover:bg-[#2d4a3a]"
+                          onClick={() => window.open(`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}`, '_blank')}
+                          className="flex-1 bg-emerald-50 text-emerald-600 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-sm transition-all hover:bg-emerald-100 border border-emerald-200"
                         >
-                          <Phone size={18} />
-                          Llamar
+                          <MessageCircle size={18} />
+                          WhatsApp
+                        </button>
+                        <button
+                          onClick={() => window.location.href = `tel:${client.phone}`}
+                          className="px-3 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200"
+                          title="Llamar"
+                        >
+                          <Phone size={20} />
                         </button>
                         <button
                           onClick={() => setSelectedClientNotes(client)}
@@ -321,11 +373,18 @@ export default function Clientes() {
                     ) : (
                       <>
                         <button
+                          onClick={() => window.open(`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}`, '_blank')}
+                          className="flex-1 bg-emerald-50 text-emerald-600 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-bold hover:bg-emerald-100 transition-all border border-emerald-200"
+                        >
+                          <MessageCircle size={18} />
+                          WhatsApp
+                        </button>
+                        <button
                           onClick={() => setSelectedClientNotes(client)}
-                          className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-bold hover:bg-slate-200 transition-all border border-slate-200"
+                          className="px-3 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200"
+                          title="Anotaciones"
                         >
                           <FileText size={18} />
-                          Anotaciones
                         </button>
                         {(client.proyectos_riego && client.proyectos_riego.length > 0) && (
                           <button

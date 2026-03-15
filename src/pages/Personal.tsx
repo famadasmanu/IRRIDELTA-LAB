@@ -28,6 +28,60 @@ type PersonalMember = {
   attendanceData?: { date: string; present: boolean }[];
 };
 
+export type VehicleHistory = {
+  id: number;
+  date: string;
+  type: string;
+  description: string;
+  cost: string;
+};
+
+export type Vehicle = {
+  id: number;
+  name: string;
+  patente: string;
+  status: string;
+  driver: string;
+  image: string;
+  metric: string;
+  metricIcon: string;
+  horometro: number;
+  odometroPorObra: number;
+  fuelLevel: number;
+  nextService: number;
+  history: VehicleHistory[];
+};
+
+export type Delivery = {
+  id: number;
+  origen: string;
+  destino: string;
+  material: string;
+  status: string;
+  eta: string;
+  vehicleId: number;
+  image: string;
+};
+
+export type CorrectiveIssue = {
+  id: number;
+  title: string;
+  reportedBy: string;
+  date: string;
+  status: string;
+  vehicleId: number;
+  icon: string;
+};
+
+export type UpcomingService = {
+  id: number;
+  title: string;
+  vehicleId: number;
+  status: string;
+  detail: string;
+  icon: string;
+};
+
 const defaultPersonal: PersonalMember[] = [
   {
     id: '1',
@@ -88,7 +142,7 @@ const defaultPersonal: PersonalMember[] = [
   }
 ];
 
-const initialVehicles = [
+const initialVehicles: Vehicle[] = [
   {
     id: 1,
     name: 'Ford F-150',
@@ -143,18 +197,18 @@ const initialVehicles = [
   },
 ];
 
-const initialDeliveries = [
+const initialDeliveries: Delivery[] = [
   { id: 1, origen: 'Vivero El Sol', destino: 'Jardín Frontal Nordelta', material: 'Plantas y Sustrato', status: 'en_camino', eta: '10:30 AM', vehicleId: 1, image: '' },
   { id: 2, origen: 'Corralón Norte', destino: 'Sistema de Riego San Isidro', material: 'Caños y Bombas', status: 'entregado', eta: '08:00 AM', vehicleId: 3, image: '' },
   { id: 3, origen: 'Depósito Central', destino: 'Piscina y Deck CABA', material: 'Madera Lapacho', status: 'pendiente', eta: '14:00 PM', vehicleId: 2, image: '' },
 ];
 
-const initialCorrectiveIssues = [
+const initialCorrectiveIssues: CorrectiveIssue[] = [
   { id: 1, title: 'Ruido en frenos traseros', reportedBy: 'Carlos Ruiz', date: 'Ayer', status: 'pendiente', vehicleId: 1, icon: 'Wrench' },
   { id: 2, title: 'Batería descargada', reportedBy: 'Ana Gomez', date: '12 Oct', status: 'resuelto', vehicleId: 2, icon: 'BatteryWarning' }
 ];
 
-const initialUpcomingServices = [
+const initialUpcomingServices: UpcomingService[] = [
   { id: 1, title: 'Cambio de Aceite', vehicleId: 1, status: 'urgente', detail: 'Vencido por 120 km', icon: 'Droplets' },
   { id: 2, title: 'Rotación de Neumáticos', vehicleId: 2, status: 'pronto', detail: 'En 500 km', icon: 'Wrench' },
   { id: 3, title: 'Inspección General', vehicleId: 3, status: 'programado', detail: '15 Nov, 2023', icon: 'Truck' }
@@ -164,10 +218,10 @@ export default function Personal() {
   const [view, setView] = useState<'equipo' | 'reasignar' | 'asistencia' | 'historial' | 'vehiculos' | 'profesionales'>('equipo');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<'todos' | 'interno' | 'externo'>('todos');
   const [personalData, setPersonalData] = useLocalStorage<PersonalMember[]>('personalData', defaultPersonal);
-  const [vehicles, setVehicles] = useLocalStorage('personal_vehicles', initialVehicles);
-  const [deliveries, setDeliveries] = useLocalStorage('personal_deliveries', initialDeliveries);
-  const [correctiveIssues, setCorrectiveIssues] = useLocalStorage('corrective_issues', initialCorrectiveIssues);
-  const [upcomingServices, setUpcomingServices] = useLocalStorage('upcoming_services', initialUpcomingServices);
+  const [vehicles, setVehicles] = useLocalStorage<Vehicle[]>('personal_vehicles', initialVehicles);
+  const [deliveries, setDeliveries] = useLocalStorage<Delivery[]>('personal_deliveries', initialDeliveries);
+  const [correctiveIssues, setCorrectiveIssues] = useLocalStorage<CorrectiveIssue[]>('corrective_issues', initialCorrectiveIssues);
+  const [upcomingServices, setUpcomingServices] = useLocalStorage<UpcomingService[]>('upcoming_services', initialUpcomingServices);
   const [selectedMember, setSelectedMember] = useState<PersonalMember | null>(null);
   const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -176,7 +230,7 @@ export default function Personal() {
   const [editStatus, setEditStatus] = useState('');
   const [editingItemType, setEditingItemType] = useState<'vehicle' | 'delivery' | 'service' | null>(null);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [selectedVehicleDetail, setSelectedVehicleDetail] = useState<any | null>(null);
+  const [selectedVehicleDetail, setSelectedVehicleDetail] = useState<Vehicle | null>(null);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isCorrectiveModalOpen, setIsCorrectiveModalOpen] = useState(false);
   const [isChangeUserModalOpen, setIsChangeUserModalOpen] = useState(false);
@@ -219,7 +273,7 @@ export default function Personal() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleOpenEditVehicle = (vehicle: any) => {
+  const handleOpenEditVehicle = (vehicle: Vehicle) => {
     setEditingItemType('vehicle');
     setEditingItemId(vehicle.id);
     setEditName(vehicle.name);
@@ -228,7 +282,7 @@ export default function Personal() {
     setIsEditModalOpen(true);
   };
 
-  const handleOpenEditDelivery = (delivery: any) => {
+  const handleOpenEditDelivery = (delivery: Delivery) => {
     setEditingItemType('delivery');
     setEditingItemId(delivery.id);
     setEditName(delivery.material);
@@ -236,7 +290,7 @@ export default function Personal() {
     setIsEditModalOpen(true);
   };
 
-  const handleOpenEditService = (service: any) => {
+  const handleOpenEditService = (service: UpcomingService) => {
     setEditingItemType('service');
     setEditingItemId(service.id);
     setEditName(service.title);
@@ -246,13 +300,13 @@ export default function Personal() {
 
   const handleSaveEditItem = () => {
     if (editingItemType === 'vehicle' && editingItemId) {
-      setVehicles((prev: any[]) => prev.map(v => v.id === editingItemId ? { ...v, name: editName, image: editImage, status: editStatus } : v));
+      setVehicles((prev: Vehicle[]) => prev.map(v => v.id === editingItemId ? { ...v, name: editName, image: editImage, status: editStatus } : v));
       showToast('Vehículo actualizado');
     } else if (editingItemType === 'delivery' && editingItemId) {
-      setDeliveries((prev: any[]) => prev.map(d => d.id === editingItemId ? { ...d, material: editName, image: editImage } : d));
+      setDeliveries((prev: Delivery[]) => prev.map(d => d.id === editingItemId ? { ...d, material: editName, image: editImage } : d));
       showToast('Entrega actualizada');
     } else if (editingItemType === 'service' && editingItemId) {
-      setUpcomingServices((prev: any[]) => prev.map(s => s.id === editingItemId ? { ...s, title: editName, status: editStatus } : s));
+      setUpcomingServices((prev: UpcomingService[]) => prev.map(s => s.id === editingItemId ? { ...s, title: editName, status: editStatus } : s));
       showToast('Service actualizado');
     }
     setIsEditModalOpen(false);
@@ -263,7 +317,7 @@ export default function Personal() {
       showToast('Por favor completa todos los campos');
       return;
     }
-    setCorrectiveIssues((prev: any[]) => [
+    setCorrectiveIssues((prev: CorrectiveIssue[]) => [
       {
         id: Date.now(),
         title: newCorrectiveIssue.title,
@@ -516,7 +570,7 @@ export default function Personal() {
 
   const handleExportExcel = () => {
     const headers = ['ID', 'Nombre', 'Rol', 'Categoria', 'Estado', 'Ubicacion', 'Presencialidad', 'Adelantos'];
-    const rows = personalData.map(m => [
+    const rows = personalData.map((m: PersonalMember) => [
       m.id,
       m.name,
       m.role,
@@ -1151,7 +1205,7 @@ export default function Personal() {
           </div>
 
           <div className="space-y-3 mt-4">
-            {personalData.filter(m => activeCategoryFilter === 'todos' || m.category === activeCategoryFilter).map((member) => (
+            {personalData.filter((m: PersonalMember) => activeCategoryFilter === 'todos' || m.category === activeCategoryFilter).map((member: PersonalMember) => (
               <div key={member.id} className={cn("bg-white rounded-2xl p-4 shadow-sm border border-[#3A5F4B]/10 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-[#3A5F4B]/30 transition-all", member.status === 'inactivo' && "opacity-60")} onClick={() => handleOpenEmployeeDetail(member)}>
                 <div className="flex items-start gap-4">
                   <div className="relative shrink-0">
@@ -1237,7 +1291,7 @@ export default function Personal() {
             </div>
 
             <div className="flex overflow-x-auto hide-scrollbar gap-4 pb-4 snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
-              {vehicles.map(v => (
+              {vehicles.map((v: Vehicle) => (
                 <div key={v.id} className="snap-center shrink-0 w-[240px] bg-white rounded-2xl shadow-sm border border-[#3A5F4B]/10 flex flex-col overflow-hidden cursor-pointer hover:shadow-md hover:border-[#3A5F4B]/30 transition-all relative group">
                   <button
                     onClick={(e) => {
@@ -1280,8 +1334,8 @@ export default function Personal() {
           <section>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Próximos Services</h2>
             <div className="flex flex-col gap-3">
-              {upcomingServices.map(service => {
-                const vehicle = vehicles.find(v => v.id === service.vehicleId);
+              {upcomingServices.map((service: UpcomingService) => {
+                const vehicle = vehicles.find((v: Vehicle) => v.id === service.vehicleId);
                 return (
                   <div key={service.id} className="flex items-center bg-white p-4 rounded-2xl shadow-sm border border-[#3A5F4B]/10 relative overflow-hidden group hover:shadow-md hover:border-[#3A5F4B]/30 transition-all">
                     <button
@@ -1342,8 +1396,8 @@ export default function Personal() {
               </div>
             </div>
             <div className="space-y-3 print-section">
-              {correctiveIssues.map(issue => {
-                const vehicle = vehicles.find(v => v.id === issue.vehicleId);
+              {correctiveIssues.map((issue: CorrectiveIssue) => {
+                const vehicle = vehicles.find((v: Vehicle) => v.id === issue.vehicleId);
                 return (
                   <div key={issue.id} className={cn("bg-white p-4 rounded-2xl shadow-sm border border-[#3A5F4B]/10 hover:shadow-md hover:border-[#3A5F4B]/30 transition-all", issue.status === 'resuelto' && "opacity-60")}>
                     <div className="flex items-start gap-3">
@@ -1627,7 +1681,7 @@ export default function Personal() {
                 <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
                   {selectedVehicleDetail.history && selectedVehicleDetail.history.length > 0 ? (
                     <div className="divide-y divide-gray-100">
-                      {selectedVehicleDetail.history.map((record: any) => (
+                      {selectedVehicleDetail.history.map((record: VehicleHistory) => (
                         <div key={record.id} className="p-4 hover:bg-gray-50 transition-colors">
                           <div className="flex justify-between items-start mb-1">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800">
@@ -1663,11 +1717,12 @@ export default function Personal() {
               </button>
             </div>
             <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
-              {personalData.map(person => (
+              {personalData.map((person: PersonalMember) => (
                 <button
                   key={person.id}
                   onClick={() => {
-                    setVehicles((prev: any[]) => prev.map(v => v.id === selectedVehicleDetail.id ? { ...v, driver: person.name } : v));
+                    if (!selectedVehicleDetail) return;
+                    setVehicles((prev: Vehicle[]) => prev.map((v: Vehicle) => v.id === selectedVehicleDetail.id ? { ...v, driver: person.name } : v));
                     setSelectedVehicleDetail({ ...selectedVehicleDetail, driver: person.name });
                     setIsChangeUserModalOpen(false);
                     showToast('Usuario actualizado');
@@ -1865,7 +1920,7 @@ export default function Personal() {
                   onChange={(e) => setNewCorrectiveIssue({ ...newCorrectiveIssue, vehicleId: Number(e.target.value) })}
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-[#3A5F4B] focus:outline-none focus:ring-1 focus:ring-[#3A5F4B]"
                 >
-                  {vehicles.map(v => (
+                  {vehicles.map((v: Vehicle) => (
                     <option key={v.id} value={v.id}>{v.name} ({v.patente})</option>
                   ))}
                 </select>
