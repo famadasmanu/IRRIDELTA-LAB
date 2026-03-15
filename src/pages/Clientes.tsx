@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Leaf, User, Search, CheckCircle2, MapPin, Calendar, Clock, CheckCircle, Phone, Map as MapIcon, Edit2, Trash2, FileText, Plus, Droplets, Activity, Grid, MessageCircle, Image as ImageIcon, Wrench, X } from 'lucide-react';
+import { Leaf, User, Search, CheckCircle2, MapPin, Calendar, Clock, CheckCircle, Phone, Map as MapIcon, Edit2, Trash2, FileText, Plus, Droplets, Activity, Grid, MessageCircle, Image as ImageIcon, Wrench, X, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { Modal } from '../components/Modal';
@@ -111,6 +111,7 @@ export default function Clientes() {
   
   const { data: anotacionesData, add: addAnotacionToDB, update: updateAnotacionInDB, remove: removeAnotacionFromDB } = useFirestoreCollection<any>('trabajos_anotaciones');
   const { data: portfolioData } = useFirestoreCollection<any>('trabajos_portfolio');
+  const { data: inventarioProjects } = useFirestoreCollection<any>('projects');
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
@@ -627,6 +628,50 @@ export default function Clientes() {
                           <span className="text-xs text-slate-500 flex items-center gap-1"><MapPin size={10} /> {trabajo.ubicacion}</span>
                         </div>
                       </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100">
+              <div className="mb-3 flex justify-between items-center">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 flex items-center gap-2">
+                    <Archive size={18} className="text-[#3A5F4B]" />
+                    Listados de Materiales (Inventario y Cómputos)
+                  </label>
+                  <p className="text-xs text-slate-500">Listas de compras y checklists de obra vinculados a este cliente.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('inventario_search_query', selectedClientNotes.name);
+                    navigate('/inventario');
+                  }}
+                  className="text-xs bg-[#3A5F4B] text-white py-1.5 px-3 mb-1 rounded-lg hover:bg-[#2d4a3a] transition-colors font-bold shadow-sm whitespace-nowrap"
+                >
+                  Nuevo Listado
+                </button>
+              </div>
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {inventarioProjects.filter((p: any) => p.clienteId === selectedClientNotes.id || p.cliente === selectedClientNotes.name).length === 0 ? (
+                  <p className="text-sm text-slate-500 italic">No hay listas de materiales ni cómputos de inventario para este cliente.</p>
+                ) : (
+                  inventarioProjects.filter((p: any) => p.clienteId === selectedClientNotes.id || p.cliente === selectedClientNotes.name).map((p: any) => (
+                    <div key={p.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center justify-between gap-4">
+                       <div>
+                         <h4 className="font-bold text-sm text-slate-800 line-clamp-1 flex items-center gap-2">
+                           {p.name}
+                           <span className="text-[10px] bg-white border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">
+                             {p.itemsCount} items
+                           </span>
+                         </h4>
+                         {p.trabajoName && <span className="text-xs text-[#3A5F4B] mt-0.5 block flex items-center gap-1"><Wrench size={10} /> Vinculado a: {p.trabajoName}</span>}
+                       </div>
+                       <button onClick={() => {
+                          localStorage.setItem('inventario_search_query', p.name);
+                          navigate('/inventario');
+                       }} className="px-3 py-1.5 bg-blue-50 border border-blue-100 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors whitespace-nowrap">Ver / Editar</button>
                     </div>
                   ))
                 )}

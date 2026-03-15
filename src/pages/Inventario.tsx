@@ -28,6 +28,8 @@ export default function Inventario() {
   }, []);
 
       const { data: projectsData, add: addProjectToDB, update: updateProjectInDB, remove: removeProjectFromDB } = useFirestoreCollection<any>('projects');
+      const { data: clientesData } = useFirestoreCollection<any>('clientes');
+      const { data: trabajosData } = useFirestoreCollection<any>('trabajos_portfolio');
       const projects = projectsData.length > 0 ? projectsData : initialProjects;
 
       const [editingProject, setEditingProject] = useState<any>(null);
@@ -247,9 +249,14 @@ export default function Inventario() {
                   <div className={`h-24 bg-gradient-to-r ${project.gradient} relative`}>
                     <div className="absolute bottom-3 left-4 text-white pr-20">
                       <h4 className="font-bold text-lg leading-tight">{project.name}</h4>
-                      <p className="text-xs opacity-90 flex items-center gap-1 mt-1">
-                        <MapPin className="w-3 h-3" /> {project.location}
-                      </p>
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        <p className="text-xs opacity-90 flex items-center gap-1">
+                          <UserCircle className="w-3 h-3" /> {project.cliente || 'Sin cliente'}
+                        </p>
+                        <p className="text-xs opacity-90 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> {project.location || 'Sin ubicación'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <div className="p-4">
@@ -329,13 +336,53 @@ export default function Inventario() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Cliente Asignado</label>
-              <input
-                type="text"
-                value={editingProject ? editingProject.cliente || '' : newItem.cliente || ''}
-                onChange={e => editingProject ? setEditingProject({ ...editingProject, cliente: e.target.value }) : setNewItem({ ...newItem, cliente: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none"
-                placeholder="Ej. Consorcio Las Lomas"
-              />
+              <select
+                value={editingProject ? editingProject.clienteId || '' : newItem.clienteId || ''}
+                onChange={e => {
+                  const selectedClient = clientesData.find((c: any) => c.id === e.target.value);
+                  const clientName = selectedClient ? selectedClient.name : '';
+                  if (editingProject) {
+                    setEditingProject({ ...editingProject, clienteId: e.target.value, cliente: clientName });
+                  } else {
+                    setNewItem({ ...newItem, clienteId: e.target.value, cliente: clientName });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none bg-white"
+              >
+                <option value="">Seleccione un cliente...</option>
+                {clientesData.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Trabajo / Obra Asociada (Opcional)</label>
+              <select
+                value={editingProject ? editingProject.trabajoId || '' : newItem.trabajoId || ''}
+                onChange={e => {
+                  const selectedTrabajo = trabajosData.find((t: any) => t.id === e.target.value);
+                  const trabajoName = selectedTrabajo ? selectedTrabajo.titulo : '';
+                  const location = selectedTrabajo ? selectedTrabajo.ubicacion : '';
+                  if (editingProject) {
+                    setEditingProject({ ...editingProject, trabajoId: e.target.value, trabajoName, location: location || editingProject.location });
+                  } else {
+                    setNewItem({ ...newItem, trabajoId: e.target.value, trabajoName, location: location || newItem.location });
+                  }
+                }}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none bg-white"
+              >
+                <option value="">Ninguna...</option>
+                {trabajosData
+                  .filter((t: any) => {
+                    const currentClienteId = editingProject ? editingProject.clienteId : newItem.clienteId;
+                    const currentClienteName = editingProject ? editingProject.cliente : newItem.cliente;
+                    return !currentClienteId || t.cliente === currentClienteName || t.clienteId === currentClienteId;
+                  })
+                  .map((t: any) => (
+                    <option key={t.id} value={t.id}>{t.titulo} ({t.estado})</option>
+                  ))
+                }
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Ubicación</label>
