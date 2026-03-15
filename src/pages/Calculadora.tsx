@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Share2, ZoomIn, Maximize, Minimize, Smartphone, Info, ShoppingCart, Map as MapIcon, Package, User, Square, Layers, Ruler, FolderOpen, Eye, BarChart2, Settings, Home, Activity, CheckCircle, Upload, Trash2, MapPin, Sun, Droplets, Navigation, Check, SplitSquareHorizontal, Download, Sparkles, AlertTriangle, Merge, Plus, Camera, Save, Image as ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -48,8 +48,12 @@ export default function Calculadora() {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfExportRef = useRef<HTMLDivElement>(null);
 
-  const [inventarioData, setInventarioData] = useLocalStorage<any[]>('inventario_data', []);
-  const [clientesData, setClientesData] = useLocalStorage<any[]>('clientes_data', []);
+  const { data: inventarioRaw, add: addInventarioToDB } = useFirestoreCollection<any>('inventario');
+  const inventarioData = inventarioRaw;
+
+  // Clientes are needed to link projects
+  const { data: clientesRaw, update: updateClientInDB } = useFirestoreCollection<any>('clientes');
+  const clientesData = clientesRaw;
   const [selectedClientId, setSelectedClientId] = useState('');
 
   // Estados de IA Copilot
@@ -143,7 +147,7 @@ export default function Calculadora() {
       estado: 'ok',
       checklist: true // Custom flag to identify it as added from calculator
     };
-    setInventarioData([...inventarioData, newItem]);
+    addInventarioToDB(newItem);
     alert(`${product.name} agregado a la checklist de inventario.`);
   };
 
@@ -165,7 +169,7 @@ export default function Calculadora() {
     }
 
     const newProject = {
-      id: Date.now(),
+      id: Date.now().toString(),
       nombre: projectName,
       fecha: new Date().toLocaleDateString('es-AR'),
       caudal: `${caudal} L/min`,
@@ -182,7 +186,9 @@ export default function Calculadora() {
       proyectos_riego: clientToUpdate.proyectos_riego ? [...clientToUpdate.proyectos_riego, newProject] : [newProject]
     };
 
-    setClientesData(clientesData.map((c: any) => c.id === clientId ? updatedClient : c));
+    const clientIdToUpdate = clientToUpdate.id; // getting string id from Firestore client
+
+    updateClientInDB(clientIdToUpdate, updatedClient);
     alert(`Proyecto "${projectName}" guardado exitosamente en el cliente ${clientToUpdate.name}.`);
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Building2,
   FileText,
@@ -8,10 +8,7 @@ import {
   AlertTriangle,
   Megaphone,
   BookOpen,
-  ArrowDownToLine,
   ChevronRight,
-  TrendingDown,
-  TrendingUp,
   Info,
   UploadCloud,
   Plus,
@@ -25,7 +22,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export type NoticeType = 'alert' | 'info' | 'success' | 'course' | 'comment';
@@ -77,11 +74,14 @@ export default function Proveedor() {
   const [selectedBranch, setSelectedBranch] = useState<'escobar' | 'benavidez' | null>(null);
   const [viewMode, setViewMode] = useState<'profesional' | 'admin'>('profesional');
   const [showToast, setShowToast] = useState<string | null>(null);
-  const [approvalState, setApprovalState] = useState<'pending' | 'approved'>('pending');
+  const [approvalState] = useState<'pending' | 'approved'>('pending');
 
   // Storage states
-  const [notices, setNotices] = useLocalStorage<Notice[]>('irridelta_notices', defaultNotices);
-  const [catalogs, setCatalogs] = useLocalStorage<Catalog[]>('irridelta_catalogs', defaultCatalogs);
+  const { data: noticesData, add: addNoticeToDB, remove: removeNoticeFromDB } = useFirestoreCollection<Notice>('notices');
+  const notices = noticesData.length > 0 ? noticesData : defaultNotices;
+
+  const { data: catalogsData, add: addCatalogToDB, remove: removeCatalogFromDB } = useFirestoreCollection<Catalog>('catalogs');
+  const catalogs = catalogsData.length > 0 ? catalogsData : defaultCatalogs;
 
   // Form states (Admin)
   const [newNotice, setNewNotice] = useState({ title: '', type: 'info', description: '', link: '' });
@@ -121,40 +121,38 @@ export default function Proveedor() {
     }
   };
 
-  const handleAddNotice = () => {
+  const handleAddNotice = async () => {
     if (!newNotice.title || !newNotice.description) {
       setShowToast('Por favor, complete título y descripción.');
       setTimeout(() => setShowToast(null), 3000);
       return;
     }
-    const notice: Notice = {
-      id: Date.now().toString(),
+    const notice: Omit<Notice, 'id'> = {
       type: newNotice.type as NoticeType,
       title: newNotice.title,
       description: newNotice.description,
       link: newNotice.link,
       date: 'Justo ahora'
     };
-    setNotices([notice, ...notices]);
+    await addNoticeToDB(notice);
     setNewNotice({ title: '', type: 'info', description: '', link: '' });
     setShowToast('Publicación agregada con éxito');
     setTimeout(() => setShowToast(null), 3000);
   };
 
-  const handleAddCatalog = () => {
+  const handleAddCatalog = async () => {
     if (!newCatalog.title) {
       setShowToast('Por favor, complete el título del catálogo.');
       setTimeout(() => setShowToast(null), 3000);
       return;
     }
-    const cat: Catalog = {
-      id: Date.now().toString(),
+    const cat: Omit<Catalog, 'id'> = {
       title: newCatalog.title,
       category: newCatalog.category,
       date: 'Justo ahora',
       fileSize: 'Adjunto'
     };
-    setCatalogs([cat, ...catalogs]);
+    await addCatalogToDB(cat);
     setNewCatalog({ title: '', category: 'Catálogos Generales' });
     setShowToast('Catálogo subido con éxito');
     setTimeout(() => setShowToast(null), 3000);
@@ -570,7 +568,7 @@ export default function Proveedor() {
                          </div>
                        </div>
                        <button 
-                         onClick={() => setNotices(notices.filter(n => n.id !== notice.id))}
+                         onClick={() => removeNoticeFromDB(notice.id)}
                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
                          title="Eliminar publicación"
                        >
@@ -599,7 +597,7 @@ export default function Proveedor() {
                          </div>
                        </div>
                        <button 
-                         onClick={() => setCatalogs(catalogs.filter(c => c.id !== catalog.id))}
+                         onClick={() => removeCatalogFromDB(catalog.id)}
                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
                          title="Borrar documento"
                        >

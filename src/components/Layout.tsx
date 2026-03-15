@@ -25,21 +25,6 @@ import {
 import { cn } from '../lib/utils';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
-const menuItems = [
-  { path: '/inicio', icon: LayoutDashboard, label: 'Inicio' },
-  { path: '/trabajos', icon: Wrench, label: 'Trabajos' },
-  { path: '/inventario', icon: Package, label: 'Inventario' },
-  { path: '/clientes', icon: Users, label: 'Clientes', badge: 8 },
-  { path: '/archivo', icon: FolderOpen, label: 'Archivo' },
-  { path: '/personal', icon: UserCheck, label: 'Equipo' },
-  { path: '/calculadora', icon: Calculator, label: 'Calc. Hidráulica' },
-  { path: '/controladores', icon: Wifi, label: 'Controladores' },
-  { path: '/proveedor', icon: Truck, label: 'Proveedor' },
-  { path: '/finanzas', icon: DollarSign, label: 'Finanzas' },
-  { path: '/notificaciones', icon: Bell, label: 'Notificaciones', badge: 3 },
-  { path: '/configuracion', icon: Settings, label: 'Configuración' },
-];
-
 export default function Layout({ onLogout }: { onLogout: () => void }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
@@ -52,12 +37,36 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
   });
 
   const [isDarkMode, setIsDarkMode] = useLocalStorage('theme_dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const [userRole] = useLocalStorage('user_role', 'admin'); // Possible roles: admin, tecnico, vendedor
+  const [userRole] = useLocalStorage('user_role', 'admin');
+
+  const [clientesData] = useLocalStorage<any[]>('clientes_data', []);
+  const [portfolioData] = useLocalStorage<any[]>('trabajos_portfolio', []);
+  const [alertasData] = useLocalStorage<any[]>('notificaciones_data', []);
+
+  // Compute Badges
+  const activeAccountsCount = clientesData.filter(c => c.status === 'EN PROCESO').length;
+  const activeProjectsCount = portfolioData.filter(p => p.estado === 'En Proceso').length;
+  const totalCuentasYProyectos = activeAccountsCount + activeProjectsCount;
+  const unreadAlerts = alertasData.length > 0 ? alertasData.filter(a => !a.leida).length : 3;
+
+  const menuItems = [
+    { path: '/inicio', icon: LayoutDashboard, label: 'Inicio' },
+    { path: '/inventario', icon: Package, label: 'Inventario' },
+    { path: '/clientes', icon: Users, label: 'Cuentas & Proyectos', badge: totalCuentasYProyectos > 0 ? totalCuentasYProyectos : undefined },
+    { path: '/archivo', icon: FolderOpen, label: 'Archivo' },
+    { path: '/personal', icon: UserCheck, label: 'Equipo' },
+    { path: '/calculadora', icon: Calculator, label: 'Calc. Hidráulica' },
+    { path: '/controladores', icon: Wifi, label: 'Controladores' },
+    { path: '/proveedor', icon: Truck, label: 'Proveedor' },
+    { path: '/finanzas', icon: DollarSign, label: 'Finanzas' },
+    { path: '/notificaciones', icon: Bell, label: 'Notificaciones', badge: unreadAlerts > 0 ? unreadAlerts : undefined },
+    { path: '/configuracion', icon: Settings, label: 'Configuración' },
+  ];
 
   const filteredMenuItems = menuItems.filter(item => {
     if (userRole === 'admin') return true;
     if (userRole === 'tecnico') {
-      return ['/inicio', '/trabajos', '/inventario', '/clientes', '/calculadora', '/controladores', '/notificaciones'].includes(item.path);
+      return ['/inicio', '/inventario', '/clientes', '/calculadora', '/controladores', '/notificaciones'].includes(item.path);
     }
     if (userRole === 'vendedor') {
       return ['/inicio', '/clientes', '/archivo', '/calculadora', '/controladores', '/finanzas', '/notificaciones'].includes(item.path);

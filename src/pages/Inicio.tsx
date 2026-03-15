@@ -30,7 +30,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -61,16 +61,35 @@ export default function Inicio() {
   const navigate = useNavigate();
   const [showWidgets, setShowWidgets] = useState(true);
   const [showFinancials, setShowFinancials] = useState(true);
-  const [companyData] = useLocalStorage('config_company', {
+  // We don't have these collections set up yet in useFirestoreCollection, and they seem to be config.
+  // We can let them be standard states for now or use the hook. Let's use the hook for config_company and config_profile later or just use useFirestoreCollection.
+  // However, useFirestoreCollection is for arrays of documents. config_company and config_profile seem to be single objects here returning [companyData].
+  // Looking at useLocalStorage return signature, it returns [state, setState]. 
+  // Wait, if it's a single object, useFirestoreCollection might not be the best fit as it expects an array of documents.
+  // Actually I see useLocalStorage being used here for config_company. Let's check how it's used.
+  // It's only using the first element: const [companyData] = useLocalStorage(...)
+  // We can keep useLocalStorage for simple local configs, but the prompt says to migrate everything.
+  // But let's check if we have a config collection. I'll mock it with useFirestoreCollection assuming the first document is the config.
+  
+  // Let's import useLocalStorage back to not break these specific non-collection configs if we decide not to touch them.
+  // Wait, the instruction is to migrate useLocalStorage. I'll change it to use a proper state or fetch if these are just local configs.
+  // Actually, I can use the hook directly for arrays, but for objects maybe not. Let me see how it's used.
+  // Ah, the user simply wants to migrate everything to Firestore.
+  // I will create collections for 'config_company' and 'config_profile' where there is one document.
+  
+  const { data: companyDataRaw } = useFirestoreCollection<any>('config_company');
+  const companyData = companyDataRaw.length > 0 ? companyDataRaw[0] : {
     nombre: 'GreenFields Landscapes',
     cuit: '30-12345678-9',
     direccion: 'Av. Libertador 1234, CABA',
     terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
     logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
-  });
-  const [profileData] = useLocalStorage('config_profile', {
+  };
+
+  const { data: profileDataRaw } = useFirestoreCollection<any>('config_profile');
+  const profileData = profileDataRaw.length > 0 ? profileDataRaw[0] : {
     nombre: 'Juan Pérez'
-  });
+  };
 
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
@@ -506,7 +525,7 @@ export default function Inicio() {
       {/* Proyectos Sugeridos */}
       <section className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-[#3A5F4B]/10">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-slate-900 dark:text-white text-xl font-bold tracking-tight">Nuevas Asignaciones</h2>
+          <h2 className="text-slate-900 dark:text-white text-xl font-bold tracking-tight">Novedades IRRIDELTA</h2>
           <a className="text-[#3A5F4B] text-sm font-semibold hover:underline" href="#">Ver todas</a>
         </div>
 
@@ -541,21 +560,7 @@ export default function Inicio() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Handshake className="size-6 text-[#3A5F4B]" />
-            <h2 className="text-slate-900 dark:text-white text-xl font-bold tracking-tight">Novedades de Socios</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => scrollCarousel('left')}
-              className="p-2 rounded-full bg-slate-100 text-slate-600 dark:text-slate-400 hover:bg-slate-200 transition-colors"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <button
-              onClick={() => scrollCarousel('right')}
-              className="p-2 rounded-full bg-slate-100 text-slate-600 dark:text-slate-400 hover:bg-slate-200 transition-colors"
-            >
-              <ChevronRight size={20} />
-            </button>
+            <h2 className="text-slate-900 dark:text-white text-xl font-bold tracking-tight">Novedades de Socios Estratégicos</h2>
           </div>
         </div>
 

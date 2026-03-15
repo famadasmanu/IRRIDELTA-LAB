@@ -28,7 +28,7 @@ import {
   Edit2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -87,7 +87,8 @@ export default function Finanzas() {
   const [activeTab, setActiveTab] = useState<'cheques' | 'pagos' | 'rentabilidad'>('cheques');
   const [view, setView] = useState<'main' | 'reporte'>('main');
 
-  const [rentabilidadData, setRentabilidadData] = useLocalStorage<RentabilidadProject[]>('rentabilidadData', defaultRentabilidad);
+  const { data: rentabilidadRaw, update: updateRentabilidad } = useFirestoreCollection<RentabilidadProject>('rentabilidad');
+  const rentabilidadData = rentabilidadRaw.length > 0 ? rentabilidadRaw : defaultRentabilidad;
   const [selectedProject, setSelectedProject] = useState<RentabilidadProject | null>(null);
   const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -114,7 +115,7 @@ export default function Finanzas() {
   const [newChequeRef, setNewChequeRef] = useState('');
 
   const [isEditChequeModalOpen, setIsEditChequeModalOpen] = useState(false);
-  const [editingChequeId, setEditingChequeId] = useState<number | null>(null);
+  const [editingChequeId, setEditingChequeId] = useState<string | null>(null);
   const [editChequeBanco, setEditChequeBanco] = useState('');
   const [editChequeTitular, setEditChequeTitular] = useState('');
   const [editChequeAmount, setEditChequeAmount] = useState('');
@@ -128,7 +129,7 @@ export default function Finanzas() {
   const [newPagoProject, setNewPagoProject] = useState('');
 
 type Cheque = {
-  id: number;
+  id: string;
   banco: string;
   titular: string;
   ref: string;
@@ -139,7 +140,7 @@ type Cheque = {
 };
 
 type Pago = {
-  id: number;
+  id: string;
   recipient: string;
   amount: number;
   date: string;
@@ -151,16 +152,22 @@ type Pago = {
   projectName: string | null;
 };
 
-  const [chequesData, setChequesData] = useLocalStorage<Cheque[]>('finanzas_cheques_v2', [
-    { id: 1, banco: 'Banco Santander', titular: 'Juan Pérez', ref: '#8942', status: 'Pendiente', amount: '$4,250.00', date: 'Vence Hoy', statusColor: 'yellow' },
-    { id: 2, banco: 'BBVA', titular: 'Tech Corp SA', ref: '#3321', status: 'Pendiente', amount: '$1,800.00', date: 'Vence en 3 días', statusColor: 'yellow' },
-    { id: 3, banco: 'Citibanamex', titular: 'María Gómez', ref: '#5590', status: 'Depositado', amount: '$6,400.00', date: '12 Oct 2023', statusColor: 'green' },
-  ]);
+const defaultCheques: Cheque[] = [
+  { id: '1', banco: 'Banco Santander', titular: 'Juan Pérez', ref: '#8942', status: 'Pendiente', amount: '$4,250.00', date: 'Vence Hoy', statusColor: 'yellow' },
+  { id: '2', banco: 'BBVA', titular: 'Tech Corp SA', ref: '#3321', status: 'Pendiente', amount: '$1,800.00', date: 'Vence en 3 días', statusColor: 'yellow' },
+  { id: '3', banco: 'Citibanamex', titular: 'María Gómez', ref: '#5590', status: 'Depositado', amount: '$6,400.00', date: '12 Oct 2023', statusColor: 'green' },
+];
 
-  const [pagosData, setPagosData] = useLocalStorage<Pago[]>('finanzas_pagos_v2', [
-    { id: 1, recipient: 'Suministros Green Thumb', amount: 450.00, date: '24 Oct', method: 'Cheque', ref: '#1024', status: 'Acreditado', icon: 'Payments', color: 'green', projectName: 'Jardines del Valle - Fase 2' },
-    { id: 2, recipient: 'Compañía de Riego Pacífico', amount: 1280.50, date: '22 Oct', method: 'Transferencia', ref: '', status: 'Completado', icon: 'AccountBalance', color: 'blue', projectName: 'Residencial Los Olivos' },
-  ]);
+const defaultPagos: Pago[] = [
+  { id: '1', recipient: 'Suministros Green Thumb', amount: 450.00, date: '24 Oct', method: 'Cheque', ref: '#1024', status: 'Acreditado', icon: 'Payments', color: 'green', projectName: 'Jardines del Valle - Fase 2' },
+  { id: '2', recipient: 'Compañía de Riego Pacífico', amount: 1280.50, date: '22 Oct', method: 'Transferencia', ref: '', status: 'Completado', icon: 'AccountBalance', color: 'blue', projectName: 'Residencial Los Olivos' },
+];
+
+  const { data: chequesRaw, add: addChequeToDB, update: updateChequeInDB } = useFirestoreCollection<Cheque>('cheques');
+  const chequesData = chequesRaw.length > 0 ? chequesRaw : defaultCheques;
+
+  const { data: pagosRaw, add: addPagoToDB } = useFirestoreCollection<Pago>('pagos');
+  const pagosData = pagosRaw.length > 0 ? pagosRaw : defaultPagos;
 
   const filteredCheques = chequesData.filter(c => {
     const matchesSearch = c.banco.toLowerCase().includes(searchCheque.toLowerCase()) || c.ref.toLowerCase().includes(searchCheque.toLowerCase());
@@ -174,28 +181,25 @@ type Pago = {
     return matchesDate && matchesMethod;
   });
 
-  const handleDepositar = (id: number) => {
-    setChequesData(prev => prev.map(c => {
-      if (c.id === id) {
-        if (c.status === 'Depositado') {
-          return { ...c, status: 'Pendiente', statusColor: 'yellow', date: 'Vence en 3 días' };
-        } else {
-          return { ...c, status: 'Depositado', statusColor: 'green', date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) };
-        }
-      }
-      return c;
-    }));
+  const handleDepositar = async (id: string) => {
+    const cheque = chequesData.find(c => c.id === id);
+    if (!cheque) return;
+
+    if (cheque.status === 'Depositado') {
+      await updateChequeInDB(id, { status: 'Pendiente', statusColor: 'yellow', date: 'Vence en 3 días' });
+    } else {
+      await updateChequeInDB(id, { status: 'Depositado', statusColor: 'green', date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) });
+    }
     showToast('Estado del cheque actualizado');
   };
 
-  const handleAddCheque = () => {
+  const handleAddCheque = async () => {
     if (!newChequeBanco.trim() || !newChequeAmount.trim() || !newChequeTitular.trim() || !newChequeDate.trim()) {
       showToast('Por favor, completa los campos requeridos (Banco, Titular, Monto, Fecha)');
       return;
     }
 
-    const newCheque = {
-      id: Date.now(),
+    const newCheque: Omit<Cheque, 'id'> = {
       banco: newChequeBanco,
       titular: newChequeTitular,
       ref: newChequeRef || `#${Math.floor(Math.random() * 10000)}`,
@@ -205,7 +209,7 @@ type Pago = {
       statusColor: 'yellow'
     };
 
-    setChequesData([newCheque, ...chequesData]);
+    await addChequeToDB(newCheque);
     setIsAddChequeModalOpen(false);
     setNewChequeBanco('');
     setNewChequeTitular('');
@@ -215,7 +219,7 @@ type Pago = {
     showToast('Cheque agregado exitosamente');
   };
 
-  const handleAddPago = () => {
+  const handleAddPago = async () => {
     if (!newPagoRecipient.trim() || !newPagoAmount.trim() || !newPagoDate.trim()) {
       showToast('Por favor, completa los campos requeridos mínimos (Destinatario, Monto, Fecha)');
       return;
@@ -225,18 +229,14 @@ type Pago = {
 
     // Add logic to discount from project margin if mapped:
     if (newPagoProject && amountCost > 0) {
-      setRentabilidadData(prev => prev.map(p => {
-        if (p.name === newPagoProject) {
-          // We do a mock reduction of the margin by 1% for every $1000 spent for demo purposes
-          const marginReduction = Math.min((amountCost / 1000), p.margin - 1);
-          return { ...p, margin: Math.max(0, Number((p.margin - marginReduction).toFixed(1))) };
-        }
-        return p;
-      }));
+      const project = rentabilidadData.find(p => p.name === newPagoProject);
+      if (project) {
+        const marginReduction = Math.min((amountCost / 1000), project.margin - 1);
+        await updateRentabilidad(project.id, { margin: Math.max(0, Number((project.margin - marginReduction).toFixed(1))) });
+      }
     }
 
-    const newPago = {
-      id: Date.now(),
+    const newPago: Omit<Pago, 'id'> = {
       recipient: newPagoRecipient,
       amount: amountCost,
       date: newPagoDate,
@@ -248,7 +248,7 @@ type Pago = {
       projectName: newPagoProject || null
     };
 
-    setPagosData([newPago, ...pagosData]);
+    await addPagoToDB(newPago);
     setIsAddPagoModalOpen(false);
     setNewPagoRecipient('');
     setNewPagoAmount('');
@@ -258,7 +258,7 @@ type Pago = {
     showToast('Gasto agregado exitosamente');
   };
 
-  const handleEditCheque = (id: number) => {
+  const handleEditCheque = (id: string) => {
     const cheque = chequesData.find(c => c.id === id);
     if (!cheque) return;
 
@@ -270,12 +270,10 @@ type Pago = {
     setIsEditChequeModalOpen(true);
   };
 
-  const handleSaveChequeEdit = () => {
+  const handleSaveChequeEdit = async () => {
     if (editingChequeId === null) return;
 
-    setChequesData(prev => prev.map(c =>
-      c.id === editingChequeId ? { ...c, banco: editChequeBanco, titular: editChequeTitular, amount: editChequeAmount, date: editChequeDate } : c
-    ));
+    await updateChequeInDB(editingChequeId, { banco: editChequeBanco, titular: editChequeTitular, amount: editChequeAmount, date: editChequeDate });
     setIsEditChequeModalOpen(false);
     showToast('Cheque actualizado');
   };
@@ -298,11 +296,9 @@ type Pago = {
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (selectedProject && editName.trim() !== '') {
-      setRentabilidadData(prev => prev.map(p =>
-        p.id === selectedProject.id ? { ...p, name: editName.trim() } : p
-      ));
+      await updateRentabilidad(selectedProject.id, { name: editName.trim() });
       setIsEditModalOpen(false);
       showToast('Nombre de proyecto actualizado');
     }

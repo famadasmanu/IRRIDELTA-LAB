@@ -22,7 +22,11 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ]
 }

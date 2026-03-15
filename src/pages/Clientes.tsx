@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Leaf, User, Search, CheckCircle2, MapPin, Calendar, Clock, CheckCircle, Phone, Map as MapIcon, Edit2, Trash2, FileText, Plus, X, Droplets, Activity, Grid, BarChart, MessageCircle } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { Leaf, User, Search, CheckCircle2, MapPin, Calendar, Clock, CheckCircle, Phone, Map as MapIcon, Edit2, Trash2, FileText, Plus, Droplets, Activity, Grid, MessageCircle, Image as ImageIcon, Wrench, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { Modal } from '../components/Modal';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -20,9 +21,29 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const customMarkerIcon = (imageUrl: string) => L.divIcon({
+  className: 'custom-avatar-marker',
+  html: `<div style="width: 44px; height: 44px; border-radius: 50%; border: 3px solid #3A5F4B; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); background-image: url('${imageUrl}'); background-size: cover; background-position: center; background-color: white;"></div>`,
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  popupAnchor: [0, -26]
+});
+
+function MapController({ clients }: { clients: any[] }) {
+  const map = useMap();
+  React.useEffect(() => {
+    const clientsWithCoords = clients.filter(c => c.lat && c.lng);
+    if (clientsWithCoords.length > 0) {
+      const bounds = L.latLngBounds(clientsWithCoords.map(c => [c.lat, c.lng]));
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [clients, map]);
+  return null;
+}
+
 const initialClients = [
   {
-    id: 1,
+    id: '1',
     status: 'EN PROCESO',
     statusColor: 'text-[#3A5F4B] bg-[#3A5F4B]/10',
     name: 'Consorcio Los Olivos',
@@ -39,7 +60,7 @@ const initialClients = [
     notes: 'Cliente muy detallista, llamar antes de ir.'
   },
   {
-    id: 2,
+    id: '2',
     status: 'EN ESPERA',
     statusColor: 'text-amber-600 bg-amber-100',
     name: 'Residencial Alvear',
@@ -56,7 +77,7 @@ const initialClients = [
     notes: ''
   },
   {
-    id: 3,
+    id: '3',
     status: 'FINALIZADO',
     statusColor: 'text-slate-600 bg-slate-100',
     name: "Casa de Campo 'El Refugio'",
@@ -85,11 +106,15 @@ const getIcon = (name: string) => {
 };
 
 export default function Clientes() {
-  const [clientsData, setClientsData] = useLocalStorage('clientes_data', initialClients);
-  const [anotacionesData, setAnotacionesData] = useLocalStorage<any[]>('trabajos_anotaciones', []);
+  const { data: clientsRaw, add: addClientToDB, update: updateClientInDB, remove: removeClientFromDB } = useFirestoreCollection<any>('clientes');
+  const clientsData = clientsRaw.length > 0 ? clientsRaw : initialClients;
+  
+  const { data: anotacionesData, add: addAnotacionToDB, update: updateAnotacionInDB, remove: removeAnotacionFromDB } = useFirestoreCollection<any>('trabajos_anotaciones');
+  const { data: portfolioData } = useFirestoreCollection<any>('trabajos_portfolio');
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+  const [selectedClientMap, setSelectedClientMap] = useState<any>(null);
   const filters = ['Todos', 'En Proceso', 'En Espera', 'Finalizados'];
 
   const [editingClient, setEditingClient] = useState<any>(null);
@@ -112,9 +137,9 @@ export default function Clientes() {
     return matchesFilter && matchesSearch;
   });
 
-  const handleDeleteClient = (id: number) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
-      setClientsData(clientsData.filter((c: any) => c.id !== id));
+  const handleDeleteClient = async (id: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta cuenta?')) {
+      await removeClientFromDB(id);
     }
   };
 
@@ -133,27 +158,34 @@ export default function Clientes() {
     }
   };
 
-  const handleSaveClient = (e: React.FormEvent) => {
+  const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAddingClient) {
       const statusColor = newClient.status === 'EN PROCESO' ? 'text-[#3A5F4B] bg-[#3A5F4B]/10' :
         newClient.status === 'EN ESPERA' ? 'text-amber-600 bg-amber-100' :
           'text-slate-600 bg-slate-100';
-      setClientsData([...clientsData, {
+      
+      const clientToAdd = {
         ...newClient,
-        id: Date.now(),
         statusColor,
         isFinished: newClient.status === 'FINALIZADO',
         icon1: 'MapPin',
         icon2: 'Calendar',
         image: newClient.image || 'https://picsum.photos/seed/client/200/200'
-      }]);
+      };
+      
+      await addClientToDB(clientToAdd);
       setIsAddingClient(false);
     } else {
       const statusColor = editingClient.status === 'EN PROCESO' ? 'text-[#3A5F4B] bg-[#3A5F4B]/10' :
         editingClient.status === 'EN ESPERA' ? 'text-amber-600 bg-amber-100' :
           'text-slate-600 bg-slate-100';
-      setClientsData(clientsData.map((c: any) => c.id === editingClient.id ? { ...editingClient, statusColor, isFinished: editingClient.status === 'FINALIZADO' } : c));
+          
+      const id = editingClient.id;
+      const clientToUpdate = { ...editingClient, statusColor, isFinished: editingClient.status === 'FINALIZADO' };
+      delete clientToUpdate.id;
+      
+      await updateClientInDB(id, clientToUpdate);
       setEditingClient(null);
     }
   };
@@ -171,27 +203,11 @@ export default function Clientes() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-[#3A5F4B]/10 p-2 rounded-lg text-[#3A5F4B]">
-                <Leaf size={24} />
+                <User size={24} />
               </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Mis Clientes</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Cuentas & Proyectos</h1>
             </div>
             <div className="flex gap-2">
-              <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
-                  title="Vista Cuadrícula"
-                >
-                  <Grid size={18} />
-                </button>
-                <button
-                  onClick={() => setViewMode('map')}
-                  className={`p-1.5 rounded-md flex items-center justify-center transition-colors ${viewMode === 'map' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
-                  title="Vista Mapa"
-                >
-                  <MapIcon size={18} />
-                </button>
-              </div>
               <button
                 onClick={() => { setIsAddingClient(true); setNewClient({ name: '', location: '', status: 'EN PROCESO', phone: '', dateInfo: '', lat: -34.6037, lng: -58.3816 }); }}
                 className="flex items-center gap-1 text-sm font-bold text-white bg-[#3A5F4B] px-4 py-2 rounded-full hover:bg-[#2d4a3a] transition-colors shadow-sm"
@@ -215,228 +231,178 @@ export default function Clientes() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
-          {/* Quick Filters */}
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {filters.map(filter => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold shadow-sm transition-all ${activeFilter === filter
-                  ? 'bg-[#3A5F4B] text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 
-      {/* KPIs Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Clientes</p>
-            <p className="text-2xl font-black text-slate-800">{totalClients}</p>
-          </div>
-          <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500">
-            <User size={20} />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-[#3A5F4B] uppercase tracking-widest mb-1">En Proceso</p>
-            <p className="text-2xl font-black text-slate-800">{activeClients}</p>
-          </div>
-          <div className="h-10 w-10 rounded-full bg-[#3A5F4B]/10 flex items-center justify-center text-[#3A5F4B]">
-            <Activity size={20} />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">En Espera</p>
-            <p className="text-2xl font-black text-slate-800">{waitingClients}</p>
-          </div>
-          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
-            <Clock size={20} />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Finalizados</p>
-            <p className="text-2xl font-black text-slate-800">{finishedClients}</p>
-          </div>
-          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-            <CheckCircle2 size={20} />
-          </div>
-        </div>
-      </div>
 
       {/* Main Content */}
-      <main className="flex-1 w-full flex flex-col">
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredClients.map((client: any) => {
-              const Icon1 = getIcon(client.icon1);
-              const Icon2 = getIcon(client.icon2);
-
-              return (
-                <div key={client.id} className={`bg-white p-4 rounded-2xl shadow-sm border border-[#3A5F4B]/10 hover:shadow-md hover:border-[#3A5F4B]/30 transition-all relative group flex flex-col ${client.isFinished ? 'opacity-90' : ''}`}>
-                  {/* Actions */}
-                  <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <button
-                      onClick={() => setEditingClient(client)}
-                      className="p-1.5 bg-white/80 backdrop-blur-sm text-slate-600 hover:text-[#3A5F4B] rounded-lg transition-colors border border-slate-200 shadow-sm"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClient(client.id)}
-                      className="p-1.5 bg-white/80 backdrop-blur-sm text-slate-600 hover:text-red-500 rounded-lg transition-colors border border-slate-200 shadow-sm"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex flex-col">
-                      <div className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md mb-2 w-fit ${client.statusColor}`}>
-                        {client.isFinished && <CheckCircle2 size={12} />}
-                        {client.status}
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-900 pr-16">{client.name}</h3>
-                    </div>
+      <main className="flex-1 w-full flex flex-col md:flex-row gap-4 h-[650px] mb-8">
+        {/* Vista Emergente de los demás (Lista Minimalista) */}
+        <div className="w-full md:w-80 bg-white rounded-2xl shadow-sm border border-[#3A5F4B]/10 overflow-hidden flex flex-col shrink-0 h-[400px] md:h-full">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <h2 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <User size={16} className="text-[#3A5F4B]" />
+              Directorio de Cuentas
+            </h2>
+            <span className="bg-[#3A5F4B]/10 text-[#3A5F4B] text-[10px] font-black px-2 py-0.5 rounded-md">{totalClients}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {filteredClients.map((client: any) => (
+              <div 
+                key={client.id}
+                onClick={() => setSelectedClientMap(client)}
+                className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedClientMap?.id === client.id ? 'border-[#3A5F4B] bg-[#3A5F4B]/5' : 'border-slate-100 hover:border-slate-300 bg-white shadow-sm'}`}
+              >
+                <div className="flex justify-between items-center mb-1 gap-2">
+                  <div className="flex items-center gap-2 overflow-hidden">
                     <div
-                      className={`size-12 rounded-lg bg-cover bg-center border border-slate-100 shrink-0 ${client.isFinished ? 'grayscale' : ''}`}
+                      className="size-6 rounded-full bg-cover bg-center border border-slate-200 shrink-0"
                       style={{ backgroundImage: `url('${client.image}')` }}
                     />
-                  </div>
-
-                  <div className="space-y-3 mb-4">
-                    <div className={`flex items-center gap-3 text-sm ${client.isFinished ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
-                      <div className={`p-1.5 rounded-lg shrink-0 ${client.isFinished ? 'bg-slate-100 text-slate-400' : 'bg-[#3A5F4B]/10 text-[#3A5F4B]'}`}>
-                        <Icon1 size={16} />
-                      </div>
-                      <span className="font-medium">{client.location}</span>
-                    </div>
-                    <div className={`flex items-center gap-3 text-sm ${client.isFinished ? 'text-slate-400' : 'text-slate-600'}`}>
-                      <div className={`p-1.5 rounded-lg shrink-0 ${client.isFinished ? 'bg-slate-100 text-slate-400' : 'bg-[#3A5F4B]/10 text-[#3A5F4B]'}`}>
-                        <Icon2 size={16} />
-                      </div>
-                      <span className="font-medium">{client.dateInfo}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    {!client.isFinished ? (
-                      <>
-                        <button
-                          onClick={() => window.open(`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}`, '_blank')}
-                          className="flex-1 bg-emerald-50 text-emerald-600 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-bold shadow-sm transition-all hover:bg-emerald-100 border border-emerald-200"
-                        >
-                          <MessageCircle size={18} />
-                          WhatsApp
-                        </button>
-                        <button
-                          onClick={() => window.location.href = `tel:${client.phone}`}
-                          className="px-3 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200"
-                          title="Llamar"
-                        >
-                          <Phone size={20} />
-                        </button>
-                        <button
-                          onClick={() => setSelectedClientNotes(client)}
-                          className="px-3 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200"
-                          title="Anotaciones"
-                        >
-                          <FileText size={20} />
-                        </button>
-                        {(client.proyectos_riego && client.proyectos_riego.length > 0) && (
-                          <button
-                            onClick={() => setSelectedClientProjects(client)}
-                            className="px-3 bg-[#3A5F4B]/10 text-[#3A5F4B] rounded-lg flex items-center justify-center hover:bg-[#3A5F4B]/20 transition-colors border border-[#3A5F4B]/20 relative"
-                            title="Proyectos de Riego"
-                          >
-                            <Droplets size={20} />
-                            <span className="absolute -top-2 -right-2 bg-[#F27D26] text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{client.proyectos_riego.length}</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => window.open(client.mapUrl || `https://maps.google.com/?q=${encodeURIComponent(client.location)}`, '_blank')}
-                          className="px-3 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200"
-                        >
-                          <MapIcon size={20} />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => window.open(`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}`, '_blank')}
-                          className="flex-1 bg-emerald-50 text-emerald-600 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-bold hover:bg-emerald-100 transition-all border border-emerald-200"
-                        >
-                          <MessageCircle size={18} />
-                          WhatsApp
-                        </button>
-                        <button
-                          onClick={() => setSelectedClientNotes(client)}
-                          className="px-3 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center hover:bg-slate-200 transition-colors border border-slate-200"
-                          title="Anotaciones"
-                        >
-                          <FileText size={18} />
-                        </button>
-                        {(client.proyectos_riego && client.proyectos_riego.length > 0) && (
-                          <button
-                            onClick={() => setSelectedClientProjects(client)}
-                            className="flex-1 bg-[#3A5F4B]/10 text-[#3A5F4B] py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-bold hover:bg-[#3A5F4B]/20 transition-all border border-[#3A5F4B]/20"
-                          >
-                            <Droplets size={18} />
-                            Proyectos ({client.proyectos_riego.length})
-                          </button>
-                        )}
-                      </>
-                    )}
+                    <h3 className="font-bold text-sm text-slate-900 line-clamp-1">{client.name}</h3>
                   </div>
                 </div>
-              );
-            })}
+                <p className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1 mt-2"><MapPin size={12}/>{client.location}</p>
+              </div>
+            ))}
             {filteredClients.length === 0 && (
-              <div className="col-span-full text-center py-10 text-slate-500">
-                No se encontraron clientes con esos filtros.
+              <div className="text-center py-10 text-slate-500 text-sm">
+                No se encontraron cuentas.
               </div>
             )}
           </div>
-        ) : (
-          <div className="h-[600px] w-full bg-white rounded-2xl shadow-sm border border-[#3A5F4B]/10 overflow-hidden relative z-0">
-            <MapContainer center={[-34.6037, -58.3816]} zoom={10} style={{ height: '100%', width: '100%' }}>
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              {filteredClients.map((client: any) => (
-                client.lat && client.lng && (
-                  <Marker key={client.id} position={[client.lat, client.lng]}>
-                    <Popup>
-                      <div className="p-1">
-                        <strong className="block text-sm mb-1">{client.name}</strong>
-                        <p className="text-xs text-slate-600 mb-1">{client.location}</p>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${client.statusColor}`}>{client.status}</span>
-                      </div>
-                    </Popup>
-                  </Marker>
-                )
-              ))}
-            </MapContainer>
-          </div>
-        )}
+        </div>
+
+        {/* Mapa y Tarjeta Emergente de Cliente Seleccionado */}
+        <div className="flex-1 bg-slate-50 rounded-2xl shadow-sm border border-[#3A5F4B]/10 overflow-hidden relative z-0 min-h-[400px]">
+          <MapContainer center={[-34.6037, -58.3816]} zoom={10} style={{ height: '100%', width: '100%' }}>
+            <MapController clients={filteredClients} />
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {filteredClients.map((client: any) => (
+              client.lat && client.lng && (
+                <Marker 
+                  key={client.id} 
+                  position={[client.lat, client.lng]}
+                  icon={customMarkerIcon(client.image)}
+                  eventHandlers={{ click: () => setSelectedClientMap(client) }}
+                >
+                  <Popup>
+                    <strong className="text-sm block text-center">{client.name}</strong>
+                  </Popup>
+                </Marker>
+              )
+            ))}
+          </MapContainer>
+
+          {/* Tarjeta Emergente del Cliente Seleccionado (Over the map) */}
+          {selectedClientMap && (
+            <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 z-[1000] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 zoom-in-95 duration-200">
+              <div className="p-5 relative">
+                <button 
+                  onClick={() => setSelectedClientMap(null)}
+                  className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+                <div className="flex gap-4 items-start mb-4 pr-6">
+                  <div
+                    className={`size-14 rounded-xl bg-cover bg-center border border-slate-200 shrink-0 ${selectedClientMap.isFinished ? 'grayscale' : ''}`}
+                    style={{ backgroundImage: `url('${selectedClientMap.image}')` }}
+                  />
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 leading-tight mb-1">{selectedClientMap.name}</h3>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-5">
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <MapPin size={14} className="text-[#3A5F4B]" />
+                    <span>{selectedClientMap.location}</span>
+                  </div>
+                  {selectedClientMap.fechaInicioPactada && (
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <Calendar size={14} className="text-[#3A5F4B]" />
+                      <span>Inicio Pactado: <strong className="font-semibold text-slate-800">{selectedClientMap.fechaInicioPactada.split('-').reverse().join('/')}</strong></span>
+                    </div>
+                  )}
+                  {selectedClientMap.fechaInicioReal && (
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <Clock size={14} className="text-[#3A5F4B]" />
+                      <span>Inicio Real: <strong className="font-semibold text-slate-800">{selectedClientMap.fechaInicioReal.split('-').reverse().join('/')}</strong></span>
+                    </div>
+                  )}
+                  {(!selectedClientMap.fechaInicioPactada && !selectedClientMap.fechaInicioReal && selectedClientMap.dateInfo) && (
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <Calendar size={14} className="text-[#3A5F4B]" />
+                      <span>{selectedClientMap.dateInfo}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* BOTON PROTAGONICO GESTOR DE OBRAS */}
+                <button
+                  onClick={() => navigate('/trabajos')}
+                  className="w-full mb-4 flex items-center justify-center gap-2 text-sm font-black text-white bg-gradient-to-r from-[#3A5F4B] to-[#2d4a3a] py-3 rounded-xl shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+                >
+                  <Wrench size={18} />
+                  Abrir Gestor de Obras
+                </button>
+
+                <div className="grid grid-cols-5 gap-2 border-t border-slate-100 pt-3 mt-2">
+                  <button
+                    onClick={() => window.open(`https://maps.google.com/?q=${selectedClientMap.lat},${selectedClientMap.lng}`, '_blank')}
+                    className="flex flex-col items-center justify-center py-2 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold hover:bg-blue-100 transition-colors"
+                    title="Google Maps"
+                  >
+                    <MapIcon size={16} className="mb-1" />
+                    Maps
+                  </button>
+                  <button
+                    onClick={() => window.open(`https://wa.me/${selectedClientMap.phone.replace(/[^0-9]/g, '')}`, '_blank')}
+                    className="flex flex-col items-center justify-center py-2 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors"
+                    title="WhatsApp"
+                  >
+                    <MessageCircle size={16} className="mb-1" />
+                    Chat
+                  </button>
+                  <button
+                    onClick={() => setSelectedClientNotes(selectedClientMap)}
+                    className="flex flex-col items-center justify-center py-2 bg-slate-50 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-100 transition-colors"
+                    title="Anotaciones"
+                  >
+                    <FileText size={16} className="mb-1" />
+                    Historial
+                  </button>
+                  <button
+                    onClick={() => { setEditingClient(selectedClientMap); }}
+                    className="flex flex-col items-center justify-center py-2 bg-slate-50 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-100 transition-colors"
+                    title="Editar"
+                  >
+                    <Edit2 size={16} className="mb-1" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => { setSelectedClientMap(null); handleDeleteClient(selectedClientMap.id); }}
+                    className="flex flex-col items-center justify-center py-2 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold hover:bg-red-100 transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={16} className="mb-1" />
+                    Borrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
 
-      {/* Modal for Edit/Add Client */}
       <Modal
         isOpen={!!editingClient || isAddingClient}
         onClose={() => { setEditingClient(null); setIsAddingClient(false); }}
-        title={editingClient ? 'Editar Cliente' : 'Nuevo Cliente'}
+        title={editingClient ? 'Editar Cuenta' : 'Nueva Cuenta'}
       >
         {(editingClient || isAddingClient) && (
           <form onSubmit={handleSaveClient} className="space-y-4">
@@ -503,14 +469,25 @@ export default function Clientes() {
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Información de Fecha/Proyecto</label>
-              <input
-                type="text"
-                value={editingClient ? editingClient.dateInfo : newClient.dateInfo}
-                onChange={e => editingClient ? setEditingClient({ ...editingClient, dateInfo: e.target.value }) : setNewClient({ ...newClient, dateInfo: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Día de Inicio Pactado</label>
+                <input
+                  type="date"
+                  value={editingClient ? editingClient.fechaInicioPactada : newClient.fechaInicioPactada}
+                  onChange={e => editingClient ? setEditingClient({ ...editingClient, fechaInicioPactada: e.target.value }) : setNewClient({ ...newClient, fechaInicioPactada: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Inicio Real</label>
+                <input
+                  type="date"
+                  value={editingClient ? editingClient.fechaInicioReal : newClient.fechaInicioReal}
+                  onChange={e => editingClient ? setEditingClient({ ...editingClient, fechaInicioReal: e.target.value }) : setNewClient({ ...newClient, fechaInicioReal: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none"
+                />
+              </div>
             </div>
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
               <button
@@ -531,11 +508,10 @@ export default function Clientes() {
         )}
       </Modal>
 
-      {/* Modal for Notes */}
       <Modal
         isOpen={!!selectedClientNotes}
         onClose={() => setSelectedClientNotes(null)}
-        title={`Anotaciones: ${selectedClientNotes?.name}`}
+        title={`Gestión de Vínculos y Anotaciones: ${selectedClientNotes?.name}`}
       >
         {selectedClientNotes && (
           <div className="space-y-4">
@@ -543,10 +519,14 @@ export default function Clientes() {
               <label className="block text-sm font-medium text-slate-700 mb-2">Notas del Cliente</label>
               <textarea
                 value={selectedClientNotes.notes || ''}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const updatedClient = { ...selectedClientNotes, notes: e.target.value };
                   setSelectedClientNotes(updatedClient);
-                  setClientsData(clientsData.map((c: any) => c.id === updatedClient.id ? updatedClient : c));
+                  // Update remotely
+                  const id = updatedClient.id;
+                  const clientToUpdate = { ...updatedClient };
+                  delete clientToUpdate.id;
+                  await updateClientInDB(id, clientToUpdate);
                 }}
                 placeholder="Escribe anotaciones sobre este cliente aquí..."
                 className="w-full h-32 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#3A5F4B]/20 focus:border-[#3A5F4B] outline-none resize-none"
@@ -555,18 +535,17 @@ export default function Clientes() {
 
             <div className="pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center mb-3">
-                <label className="block text-sm font-medium text-slate-700">Anotaciones Generales Vinculadas</label>
+                <label className="block text-sm font-medium text-slate-700">Anotaciones y Trabajos Vinculados al Cliente</label>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const newNota = {
-                      id: Date.now(),
                       titulo: `Nota para ${selectedClientNotes.name}`,
                       categoria: 'General',
                       fecha: new Date().toLocaleDateString('es-AR'),
                       contenido: '',
                       cliente: selectedClientNotes.name
                     };
-                    setAnotacionesData([...anotacionesData, newNota]);
+                    await addAnotacionToDB(newNota);
                   }}
                   className="text-xs bg-[#3A5F4B] text-white px-2 py-1 rounded hover:bg-[#2d4a3a] transition-colors flex items-center gap-1"
                 >
@@ -574,23 +553,23 @@ export default function Clientes() {
                 </button>
               </div>
               <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                {anotacionesData.filter((nota: any) => nota.cliente === selectedClientNotes.name || nota.titulo.includes(selectedClientNotes.name) || nota.contenido.includes(selectedClientNotes.name)).length === 0 ? (
-                  <p className="text-sm text-slate-500 italic">No hay anotaciones generales vinculadas a este cliente.</p>
+                {anotacionesData.filter((nota: any) => nota.cliente === selectedClientNotes.name || nota.titulo.includes(selectedClientNotes.name) || nota.contenido.includes(selectedClientNotes.name) || (nota.tags && nota.tags.some((tag: any) => tag.name.includes(selectedClientNotes.name)))).length === 0 ? (
+                  <p className="text-sm text-slate-500 italic">No hay anotaciones o vinculaciones para este cliente aún.</p>
                 ) : (
-                  anotacionesData.filter((nota: any) => nota.cliente === selectedClientNotes.name || nota.titulo.includes(selectedClientNotes.name) || nota.contenido.includes(selectedClientNotes.name)).map((nota: any) => (
+                  anotacionesData.filter((nota: any) => nota.cliente === selectedClientNotes.name || nota.titulo.includes(selectedClientNotes.name) || nota.contenido.includes(selectedClientNotes.name) || (nota.tags && nota.tags.some((tag: any) => tag.name.includes(selectedClientNotes.name)))).map((nota: any) => (
                     <div key={nota.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
                       <div className="flex justify-between items-start mb-1">
                         <input
                           type="text"
                           value={nota.titulo}
-                          onChange={(e) => {
-                            setAnotacionesData(anotacionesData.map((n: any) => n.id === nota.id ? { ...n, titulo: e.target.value } : n));
+                          onChange={async (e) => {
+                             await updateAnotacionInDB(nota.id, { titulo: e.target.value });
                           }}
                           className="font-bold text-sm text-slate-800 bg-transparent border-none p-0 focus:ring-0 w-full"
                           placeholder="Título de la nota"
                         />
                         <button
-                          onClick={() => setAnotacionesData(anotacionesData.filter((n: any) => n.id !== nota.id))}
+                          onClick={async () => await removeAnotacionFromDB(nota.id)}
                           className="text-red-500 hover:text-red-700 p-1"
                         >
                           <Trash2 size={14} />
@@ -598,21 +577,62 @@ export default function Clientes() {
                       </div>
                       <textarea
                         value={nota.contenido}
-                        onChange={(e) => {
-                          setAnotacionesData(anotacionesData.map((n: any) => n.id === nota.id ? { ...n, contenido: e.target.value } : n));
+                        onChange={async (e) => {
+                          await updateAnotacionInDB(nota.id, { contenido: e.target.value });
                         }}
                         className="text-sm text-slate-600 bg-transparent border-none p-0 focus:ring-0 w-full resize-none h-16"
                         placeholder="Contenido de la nota..."
                       />
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-slate-400">{nota.fecha}</span>
-                        <span className="text-[10px] bg-[#3A5F4B]/10 text-[#3A5F4B] px-2 py-0.5 rounded-full font-medium">Tag: {selectedClientNotes.name}</span>
+                        <span className="text-[10px] bg-[#3A5F4B]/10 text-[#3A5F4B] px-2 py-0.5 rounded-full font-medium">Origen: {nota.categoria}</span>
                       </div>
                     </div>
                   ))
                 )}
               </div>
             </div>
+
+            <div className="pt-4 border-t border-slate-100">
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-slate-700 flex items-center gap-2">
+                  <User size={18} className="text-[#3A5F4B]" />
+                  Obras y Trabajos (Portfolio Activo)
+                </label>
+                <p className="text-xs text-slate-500">Historial extraído automáticamente desde la terminal de Trabajos.</p>
+              </div>
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {portfolioData.filter((trabajo: any) => trabajo.cliente === selectedClientNotes.name).length === 0 ? (
+                  <p className="text-sm text-slate-500 italic">No hay trabajos ni proyectos de obra documentados para este cliente.</p>
+                ) : (
+                  portfolioData.filter((trabajo: any) => trabajo.cliente === selectedClientNotes.name).map((trabajo: any) => (
+                    <div key={trabajo.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className="h-12 w-16 bg-slate-100 rounded border border-slate-200 overflow-hidden shrink-0">
+                        {trabajo.img ? (
+                          <img src={trabajo.img} alt={trabajo.titulo} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-400"><ImageIcon size={16} /></div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-sm text-slate-800 line-clamp-1">{trabajo.titulo}</h4>
+                        <div className="flex gap-2 items-center mt-1">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                              trabajo.estado === 'Completado' ? 'bg-green-100 text-green-700' :
+                              trabajo.estado === 'En Proceso' ? 'bg-blue-100 text-blue-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                            {trabajo.estado}
+                          </span>
+                          <span className="text-xs text-slate-500 flex items-center gap-1"><MapPin size={10} /> {trabajo.ubicacion}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
               <button
                 onClick={() => setSelectedClientNotes(null)}

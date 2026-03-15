@@ -1,28 +1,29 @@
 import React, { useState } from 'react';
 import { Bell, AlertTriangle, Info, CheckCircle, Calendar, DollarSign, CloudRain, ChevronDown, X, Filter, Thermometer, Check, Trash2, Plus, MoreVertical, Edit2, Settings, ArrowLeft, BellRing, AlertOctagon, Truck, Cloud, Users, ChevronRight, Wallet, Zap, CalendarDays, Moon, Save, Activity } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { Modal } from '../components/Modal';
 import ActividadReciente from './ActividadReciente';
 
 const alertasData = [
-  { id: 1, tipo: 'cheque', nivel: 'atencion', titulo: 'Cheque próximo a vencer', contexto: 'Cheque #45892 por $450,000 vence en 2 días.', fecha: 'Hoy, 09:00', monto: '$450,000' },
-  { id: 2, tipo: 'cuenta', nivel: 'accion', titulo: 'Límite de cuenta corriente', contexto: 'Has alcanzado el 90% del límite en Vivero Central.', fecha: 'Ayer, 15:30', progreso: 90 },
-  { id: 3, tipo: 'clima', nivel: 'informativa', titulo: 'Alerta de Lluvia', contexto: 'Probabilidad de lluvia del 80% para mañana en Zona Norte. Revisar obras al aire libre.', fecha: 'Hoy, 07:15', temperatura: '18°C' },
-  { id: 4, tipo: 'evento', nivel: 'atencion', titulo: 'Reunión reprogramada', contexto: 'El cliente Familia Pérez solicitó mover la reunión al jueves.', fecha: 'Hace 2 horas' },
-  { id: 5, tipo: 'comercial', nivel: 'informativa', titulo: 'Nueva lista de precios', contexto: 'Materiales San Isidro actualizó sus precios (+5% promedio).', fecha: 'Ayer, 10:00' },
+  { id: '1', tipo: 'cheque', nivel: 'atencion', titulo: 'Cheque próximo a vencer', contexto: 'Cheque #45892 por $450,000 vence en 2 días.', fecha: 'Hoy, 09:00', monto: '$450,000' },
+  { id: '2', tipo: 'cuenta', nivel: 'accion', titulo: 'Límite de cuenta corriente', contexto: 'Has alcanzado el 90% del límite en Vivero Central.', fecha: 'Ayer, 15:30', progreso: 90 },
+  { id: '3', tipo: 'clima', nivel: 'informativa', titulo: 'Alerta de Lluvia', contexto: 'Probabilidad de lluvia del 80% para mañana en Zona Norte. Revisar obras al aire libre.', fecha: 'Hoy, 07:15', temperatura: '18°C' },
+  { id: '4', tipo: 'evento', nivel: 'atencion', titulo: 'Reunión reprogramada', contexto: 'El cliente Familia Pérez solicitó mover la reunión al jueves.', fecha: 'Hace 2 horas' },
+  { id: '5', tipo: 'comercial', nivel: 'informativa', titulo: 'Nueva lista de precios', contexto: 'Materiales San Isidro actualizó sus precios (+5% promedio).', fecha: 'Ayer, 10:00' },
 ];
 
 export default function Alertas() {
   const [view, setView] = useState<'list' | 'config' | 'config-finance'>('list');
   const [activeMainTab, setActiveMainTab] = useState<'alertas' | 'actividad'>('alertas');
-  const [alertasDataState, setAlertasDataState] = useLocalStorage('alertas_data', alertasData);
+  const { data: alertasRaw, add: addAlertaToDB, remove: removeAlertaFromDB, update: updateAlertaInDB } = useFirestoreCollection<any>('alertas');
+  const alertasDataState = alertasRaw.length > 0 ? alertasRaw : alertasData;
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [activeFilter, setActiveFilter] = useState('todos');
   const [showToast, setShowToast] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [editingAlert, setEditingAlert] = useState<any>(null);
 
   const [alertForm, setAlertForm] = useState({
@@ -35,11 +36,11 @@ export default function Alertas() {
   const handleAction = (titulo: string, id: number) => {
     setShowToast(`Acción ejecutada para: ${titulo}`);
     setTimeout(() => setShowToast(null), 3000);
-    // setAlertasDataState(alertasDataState.filter((a: any) => a.id !== id));
+    // await removeAlertaFromDB(id);
   };
 
-  const handleDeleteAlert = (id: number) => {
-    setAlertasDataState(alertasDataState.filter((a: any) => a.id !== id));
+  const handleDeleteAlert = async (id: string) => {
+    await removeAlertaFromDB(id);
     setActiveDropdown(null);
   };
 
@@ -55,21 +56,18 @@ export default function Alertas() {
     setIsModalOpen(true);
   };
 
-  const handleSaveAlert = (e: React.FormEvent) => {
+  const handleSaveAlert = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!alertForm.titulo.trim() || !alertForm.contexto.trim()) return;
 
     if (editingAlert) {
-      setAlertasDataState(alertasDataState.map((a: any) =>
-        a.id === editingAlert.id ? { ...a, ...alertForm } : a
-      ));
+      await updateAlertaInDB(editingAlert.id, alertForm);
       setShowToast('Alerta actualizada correctamente');
     } else {
-      setAlertasDataState([{
-        id: Date.now(),
+      await addAlertaToDB({
         ...alertForm,
         fecha: 'Justo ahora'
-      }, ...alertasDataState]);
+      });
       setShowToast('Alerta creada correctamente');
     }
 

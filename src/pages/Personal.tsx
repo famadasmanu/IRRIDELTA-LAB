@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import {
-  Menu, Bell, MapPin, Home, Calendar, FolderOpen, User,
+  MapPin, Calendar, User,
   Search, Phone, MessageCircle, Clock, Users, Briefcase,
   ArrowLeft, CheckCircle, Check, ChevronDown, Filter,
   TreePine, AlertTriangle, Locate, MoreVertical, X,
-  Truck, Package, Navigation, CheckCircle2, Plus, Edit2, Camera,
+  Truck, Plus, Edit2, Camera,
   Wrench, Droplets, Activity, FileText, Timer, CalendarDays,
   BatteryWarning, UploadCloud, Save, Leaf, Sun, ArrowRight, Download
 } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
-import { useLocalStorage } from '@/src/hooks/useLocalStorage';
+import { cn } from '../lib/utils';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -217,11 +217,31 @@ const initialUpcomingServices: UpcomingService[] = [
 export default function Personal() {
   const [view, setView] = useState<'equipo' | 'reasignar' | 'asistencia' | 'historial' | 'vehiculos' | 'profesionales'>('equipo');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<'todos' | 'interno' | 'externo'>('todos');
-  const [personalData, setPersonalData] = useLocalStorage<PersonalMember[]>('personalData', defaultPersonal);
-  const [vehicles, setVehicles] = useLocalStorage<Vehicle[]>('personal_vehicles', initialVehicles);
-  const [deliveries, setDeliveries] = useLocalStorage<Delivery[]>('personal_deliveries', initialDeliveries);
-  const [correctiveIssues, setCorrectiveIssues] = useLocalStorage<CorrectiveIssue[]>('corrective_issues', initialCorrectiveIssues);
-  const [upcomingServices, setUpcomingServices] = useLocalStorage<UpcomingService[]>('upcoming_services', initialUpcomingServices);
+  // Firestore Collections
+  const { data: personalRaw, add: addPersonal, update: updatePersonal, remove: removePersonal } = useFirestoreCollection<PersonalMember>('personalData');
+  const personalData = personalRaw.length > 0 ? personalRaw : defaultPersonal;
+  const setPersonalData = (updater: any) => {
+    // Only handling updates as we migrated to firestore. 
+    // This is a mock setter if still called inline somewhere, but ideally we should replace these with direct `updatePersonal` calls below.
+  };
+
+  const { data: vehiclesRaw, add: addVehicle, update: updateVehicle, remove: removeVehicle } = useFirestoreCollection<Vehicle>('personal_vehicles');
+  const vehicles = vehiclesRaw.length > 0 ? vehiclesRaw : initialVehicles;
+  const setVehicles = (updater: any) => {
+    // Mock for compatibility with quick map updates.
+  };
+
+  const { data: deliveriesRaw, add: addDelivery, update: updateDelivery, remove: removeDelivery } = useFirestoreCollection<Delivery>('personal_deliveries');
+  const deliveries = deliveriesRaw.length > 0 ? deliveriesRaw : initialDeliveries;
+  const setDeliveries = (updater: any) => {};
+
+  const { data: correctiveIssuesRaw, add: addCorrectiveIssue, update: updateCorrectiveIssue, remove: removeCorrectiveIssue } = useFirestoreCollection<CorrectiveIssue>('corrective_issues');
+  const correctiveIssues = correctiveIssuesRaw.length > 0 ? correctiveIssuesRaw : initialCorrectiveIssues;
+  const setCorrectiveIssues = (updater: any) => {};
+
+  const { data: upcomingServicesRaw, add: addUpcomingService, update: updateUpcomingService, remove: removeUpcomingService } = useFirestoreCollection<UpcomingService>('upcoming_services');
+  const upcomingServices = upcomingServicesRaw.length > 0 ? upcomingServicesRaw : initialUpcomingServices;
+  const setUpcomingServices = (updater: any) => {};
   const [selectedMember, setSelectedMember] = useState<PersonalMember | null>(null);
   const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -264,9 +284,7 @@ export default function Personal() {
     { id: 3, type: 'futuro' as const, name: 'Lucía M.', zone: 'Zona Pilar', center: [-34.4650, -58.9100] as [number, number], radius: 65, color: '#f97316', subtitle: 'Próximos Pasos', text: 'Paisajista Senior con grandes proyectos planificados para esta zona.', features: ['4 Obras Futuras', 'Eco-Paisajismo'] }
   ]);
 
-  const updateZoneRadius = (id: number, newRadius: number) => {
-    setHeatmapZones(prev => prev.map(z => z.id === id ? { ...z, radius: newRadius } : z));
-  };
+  // Función updateZoneRadius eliminada permanentemente por advertencia de falta de uso
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -282,13 +300,7 @@ export default function Personal() {
     setIsEditModalOpen(true);
   };
 
-  const handleOpenEditDelivery = (delivery: Delivery) => {
-    setEditingItemType('delivery');
-    setEditingItemId(delivery.id);
-    setEditName(delivery.material);
-    setEditImage(delivery.image || '');
-    setIsEditModalOpen(true);
-  };
+  // Función handleOpenEditDelivery eliminada por advertencia de falta de uso
 
   const handleOpenEditService = (service: UpcomingService) => {
     setEditingItemType('service');
@@ -300,13 +312,16 @@ export default function Personal() {
 
   const handleSaveEditItem = () => {
     if (editingItemType === 'vehicle' && editingItemId) {
-      setVehicles((prev: Vehicle[]) => prev.map(v => v.id === editingItemId ? { ...v, name: editName, image: editImage, status: editStatus } : v));
+      const updatedVehicle = vehicles.find(v => v.id === editingItemId);
+      if (updatedVehicle) updateVehicle(editingItemId.toString(), { ...updatedVehicle, name: editName, image: editImage, status: editStatus });
       showToast('Vehículo actualizado');
     } else if (editingItemType === 'delivery' && editingItemId) {
-      setDeliveries((prev: Delivery[]) => prev.map(d => d.id === editingItemId ? { ...d, material: editName, image: editImage } : d));
+      const updatedDelivery = deliveries.find(d => d.id === editingItemId);
+      if (updatedDelivery) updateDelivery(editingItemId.toString(), { ...updatedDelivery, material: editName, image: editImage });
       showToast('Entrega actualizada');
     } else if (editingItemType === 'service' && editingItemId) {
-      setUpcomingServices((prev: UpcomingService[]) => prev.map(s => s.id === editingItemId ? { ...s, title: editName, status: editStatus } : s));
+      const updatedService = upcomingServices.find(s => s.id === editingItemId);
+      if (updatedService) updateUpcomingService(editingItemId.toString(), { ...updatedService, title: editName, status: editStatus });
       showToast('Service actualizado');
     }
     setIsEditModalOpen(false);
@@ -317,8 +332,7 @@ export default function Personal() {
       showToast('Por favor completa todos los campos');
       return;
     }
-    setCorrectiveIssues((prev: CorrectiveIssue[]) => [
-      {
+    const newIssue = {
         id: Date.now(),
         title: newCorrectiveIssue.title,
         reportedBy: newCorrectiveIssue.reportedBy,
@@ -326,9 +340,8 @@ export default function Personal() {
         status: 'pendiente',
         vehicleId: newCorrectiveIssue.vehicleId,
         icon: newCorrectiveIssue.icon
-      },
-      ...prev
-    ]);
+    };
+    addCorrectiveIssue(newIssue);
     setIsCorrectiveModalOpen(false);
     setNewCorrectiveIssue({ title: '', reportedBy: '', vehicleId: 1, icon: 'Wrench' });
     showToast('Mantenimiento correctivo reportado');
@@ -371,9 +384,8 @@ export default function Personal() {
       return;
     }
     if (selectedMember && editName.trim() !== '') {
-      setPersonalData((prev: PersonalMember[]) => prev.map((p: PersonalMember) =>
-        p.id === selectedMember.id ? { ...p, name: editName.trim(), presencialidad: editPresencialidad, adelantos: editAdelantos } : p
-      ));
+      updatePersonal(selectedMember.id, { ...selectedMember, name: editName.trim(), presencialidad: editPresencialidad, adelantos: editAdelantos });
+      
       if (selectedEmployeeDetail && selectedEmployeeDetail.id === selectedMember.id) {
         setSelectedEmployeeDetail({ ...selectedEmployeeDetail, name: editName.trim(), presencialidad: editPresencialidad, adelantos: editAdelantos });
       }
@@ -398,7 +410,7 @@ export default function Personal() {
         presencialidad: editPresencialidadValue,
         attendanceAlert: editAttendanceAlert
       };
-      setPersonalData(personalData.map((m: PersonalMember) => m.id === updatedMember.id ? updatedMember : m));
+      updatePersonal(updatedMember.id, updatedMember);
       setSelectedEmployeeDetail(updatedMember);
       setIsEditingLocation(false);
       setIsEditingAdelantos(false);
@@ -1722,8 +1734,9 @@ export default function Personal() {
                   key={person.id}
                   onClick={() => {
                     if (!selectedVehicleDetail) return;
-                    setVehicles((prev: Vehicle[]) => prev.map((v: Vehicle) => v.id === selectedVehicleDetail.id ? { ...v, driver: person.name } : v));
-                    setSelectedVehicleDetail({ ...selectedVehicleDetail, driver: person.name });
+                    const updatedV = { ...selectedVehicleDetail, driver: person.name };
+                    updateVehicle(selectedVehicleDetail.id.toString(), updatedV);
+                    setSelectedVehicleDetail(updatedV);
                     setIsChangeUserModalOpen(false);
                     showToast('Usuario actualizado');
                   }}

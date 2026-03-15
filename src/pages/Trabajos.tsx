@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Filter, MapPin, Calendar, Plus, Image as ImageIcon, FileText, Trash2, MoreVertical, Edit2, ArrowLeft, TrendingUp, DollarSign, Clock as ClockIcon, Activity, Save, Download, Check, Map as MapIcon, X, Tag, User, Link as LinkIcon, Folder, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Filter, MapPin, Calendar, Plus, Image as ImageIcon, FileText, Trash2, MoreVertical, Edit2, ArrowLeft, TrendingUp, DollarSign, Clock as ClockIcon, Activity, Save, Download, Check, Map as MapIcon, X, Tag, User, Link as LinkIcon, Package, Folder, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Modal } from '../components/Modal';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
@@ -13,7 +14,7 @@ import { es } from 'date-fns/locale';
 
 const initialPortfolioData = [
   {
-    id: 1, titulo: 'Jardín Frontal Nordelta', categoria: 'Diseño', estado: 'Completado', cliente: 'Familia Pérez',
+    id: '1', titulo: 'Jardín Frontal Nordelta', categoria: 'Diseño', estado: 'Completado', cliente: 'Familia Pérez',
     fecha: 'Oct 2023', fechaInicio: '2023-10-01', img: 'https://picsum.photos/seed/jardin1/400/300', ubicacion: 'Nordelta',
     gastos: 450000, rentabilidad: 35, tiempoDias: 60, gastoDistancia: 15000, lat: -34.4066, lng: -58.6503,
     trabajosPactados: [
@@ -25,19 +26,19 @@ const initialPortfolioData = [
     ]
   },
   {
-    id: 2, titulo: 'Sistema de Riego San Isidro', categoria: 'Instalación', estado: 'En Proceso', cliente: 'Consorcio Las Lomas',
+    id: '2', titulo: 'Sistema de Riego San Isidro', categoria: 'Instalación', estado: 'En Proceso', cliente: 'Consorcio Las Lomas',
     fecha: 'Nov 2023', fechaInicio: '2023-11-15', img: 'https://picsum.photos/seed/riego/400/300', ubicacion: 'San Isidro',
     gastos: 120000, rentabilidad: 40, tiempoDias: 30, gastoDistancia: 8000, lat: -34.4714, lng: -58.5261,
     trabajosPactados: [], insumosUsados: []
   },
   {
-    id: 3, titulo: 'Mantenimiento Mensual', categoria: 'Mantenimiento', estado: 'Activo', cliente: 'Club El Pilar',
+    id: '3', titulo: 'Mantenimiento Mensual', categoria: 'Mantenimiento', estado: 'Activo', cliente: 'Club El Pilar',
     fecha: 'Continuo', fechaInicio: '2023-01-01', img: 'https://picsum.photos/seed/mantenimiento/400/300', ubicacion: 'Pilar',
     gastos: 50000, rentabilidad: 60, tiempoDias: 365, gastoDistancia: 25000, lat: -34.4587, lng: -58.9142,
     trabajosPactados: [], insumosUsados: []
   },
   {
-    id: 4, titulo: 'Piscina y Deck', categoria: 'Obra', estado: 'Planificación', cliente: 'Estudio M&A',
+    id: '4', titulo: 'Piscina y Deck', categoria: 'Obra', estado: 'Planificación', cliente: 'Estudio M&A',
     fecha: 'Dic 2023', fechaInicio: '2023-12-01', img: 'https://picsum.photos/seed/deck/400/300', ubicacion: 'CABA',
     gastos: 0, rentabilidad: 0, tiempoDias: 0, gastoDistancia: 0, lat: -34.6037, lng: -58.3816,
     trabajosPactados: [], insumosUsados: []
@@ -82,16 +83,19 @@ function LocationPicker({ position, setPosition }: { position: [number, number] 
 }
 
 const initialAnotacionesData = [
-  { id: 1, titulo: 'Especificaciones Bomba Riego', categoria: 'Técnico', fecha: '15 Nov 2023', contenido: 'Bomba sumergible 1.5HP. Presión de trabajo 3.5 bar. Caudal 4000 l/h. Requiere tablero con guardamotor.', tags: [{ id: '1', name: 'Bomba', icon: 'Wrench', link: '' }] },
-  { id: 2, titulo: 'Medidas Deck Nordelta', categoria: 'Mediciones', fecha: '12 Nov 2023', contenido: 'Largo total: 12.5m. Ancho: 4.2m. Altura sobre nivel: 0.45m. Madera: Lapacho 1" x 4".', tags: [{ id: '2', name: 'Nordelta', icon: 'MapPin', link: '/clientes' }] },
-  { id: 3, titulo: 'Mezcla Sustrato', categoria: 'Botánica', fecha: '05 Nov 2023', contenido: 'Proporción ideal para maceteros: 40% tierra negra, 30% compost, 20% perlita, 10% turba.', tags: [] },
+  { id: '1', titulo: 'Especificaciones Bomba Riego', categoria: 'Técnico', fecha: '15 Nov 2023', contenido: 'Bomba sumergible 1.5HP. Presión de trabajo 3.5 bar. Caudal 4000 l/h. Requiere tablero con guardamotor.', tags: [{ id: '1', name: 'Bomba', icon: 'Wrench', link: '' }] },
+  { id: '2', titulo: 'Medidas Deck Nordelta', categoria: 'Mediciones', fecha: '12 Nov 2023', contenido: 'Largo total: 12.5m. Ancho: 4.2m. Altura sobre nivel: 0.45m. Madera: Lapacho 1" x 4".', tags: [{ id: '2', name: 'Nordelta', icon: 'MapPin', link: '/clientes' }] },
+  { id: '3', titulo: 'Mezcla Sustrato', categoria: 'Botánica', fecha: '05 Nov 2023', contenido: 'Proporción ideal para maceteros: 40% tierra negra, 30% compost, 20% perlita, 10% turba.', tags: [] },
 ];
 
 export default function Trabajos() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'portfolio' | 'anotaciones' | 'mapa' | 'calendario'>('portfolio');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [portfolioData, setPortfolioData] = useLocalStorage<any[]>('trabajos_portfolio', initialPortfolioData);
-  const [anotacionesData, setAnotacionesData] = useLocalStorage<any[]>('trabajos_anotaciones', initialAnotacionesData);
+  const { data: portfolioRaw, add: addPortfolioToDB, remove: removePortfolioFromDB, update: updatePortfolioInDB } = useFirestoreCollection<any>('trabajos_portfolio');
+  const portfolioData = portfolioRaw.length > 0 ? portfolioRaw : initialPortfolioData;
+  const { data: anotacionesRaw, add: addAnotacionToDB, remove: removeAnotacionFromDB, update: updateAnotacionInDB } = useFirestoreCollection<any>('trabajos_anotaciones');
+  const anotacionesData = anotacionesRaw.length > 0 ? anotacionesRaw : initialAnotacionesData;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -140,7 +144,7 @@ export default function Trabajos() {
   const [mapSearchQuery, setMapSearchQuery] = useState('');
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [isSearchingMap, setIsSearchingMap] = useState(false);
-  const [clientesData] = useLocalStorage<any[]>('clientes_data', []);
+  const { data: clientesData } = useFirestoreCollection<any>('clientes');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
@@ -352,8 +356,7 @@ export default function Trabajos() {
         }
       }
 
-      setPortfolioData([...portfolioData, {
-        id: Date.now(),
+      await addPortfolioToDB({
         titulo: newTitle,
         categoria: 'Nuevo',
         estado: 'Planificación',
@@ -370,16 +373,15 @@ export default function Trabajos() {
         insumosUsados: [],
         lat,
         lng
-      }]);
+      });
     } else {
-      setAnotacionesData([...anotacionesData, {
-        id: Date.now(),
+      await addAnotacionToDB({
         titulo: newTitle,
         categoria: 'General',
         fecha: 'Hoy',
         contenido: newContent,
         tags: newTags
-      }]);
+      });
     }
 
     setNewTitle('');
@@ -390,11 +392,11 @@ export default function Trabajos() {
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: number, type: 'portfolio' | 'anotaciones') => {
+  const handleDelete = async (id: string, type: 'portfolio' | 'anotaciones') => {
     if (type === 'portfolio') {
-      setPortfolioData(portfolioData.filter((item: any) => item.id !== id));
+      await removePortfolioFromDB(id);
     } else {
-      setAnotacionesData(anotacionesData.filter((item: any) => item.id !== id));
+      await removeAnotacionFromDB(id);
     }
     setOptionsItem(null);
   };
@@ -432,21 +434,20 @@ export default function Trabajos() {
         }
       }
 
-      setPortfolioData(portfolioData.map((item: any) =>
-        item.id === editingItem.id ? {
-          ...item,
-          titulo: editTitle,
-          img: editImg || item.img,
-          ubicacion: editUbicacion,
-          cliente: editCliente,
-          lat,
-          lng
-        } : item
-      ));
+      const id = editingItem.id;
+      const dataToUpdate = {
+        titulo: editTitle,
+        img: editImg || editingItem.img,
+        ubicacion: editUbicacion,
+        cliente: editCliente,
+        lat,
+        lng
+      };
+      
+      await updatePortfolioInDB(id, dataToUpdate);
     } else {
-      setAnotacionesData(anotacionesData.map((item: any) =>
-        item.id === editingItem.id ? { ...item, titulo: editTitle, contenido: editContent, tags: editTags } : item
-      ));
+      const id = editingItem.id;
+      await updateAnotacionInDB(id, { titulo: editTitle, contenido: editContent, tags: editTags });
     }
 
     setEditingItem(null);
@@ -469,20 +470,20 @@ export default function Trabajos() {
     ? gastosDetalle.reduce((acc, item) => acc + ((Number(item.cantidad) || 0) * (Number(item.precioUnitario) || 0)), 0)
     : Number(metricsForm.gastos) || 0;
 
-  const handleSaveMetrics = () => {
+  const handleSaveMetrics = async () => {
     if (!selectedTrabajo) return;
-    const updatedData = portfolioData.map((item: any) =>
-      item.id === selectedTrabajo.id ? {
-        ...item,
+    
+    const id = selectedTrabajo.id;
+    const updateData = {
         gastos: gastosToUse,
         rentabilidad: Number(metricsForm.rentabilidad) || 0,
         gastoDistancia: Number(metricsForm.gastoDistancia) || 0,
         fechaInicio: metricsForm.fechaInicio,
         gastosDetalle: gastosDetalle
-      } : item
-    );
-    setPortfolioData(updatedData);
-    setSelectedTrabajo(updatedData.find((i: any) => i.id === selectedTrabajo.id));
+    };
+    await updatePortfolioInDB(id, updateData);
+    
+    setSelectedTrabajo({ ...selectedTrabajo, ...updateData });
     displayToast('Métricas y gastos guardados');
   };
 
@@ -509,27 +510,21 @@ export default function Trabajos() {
     setGastosDetalle(gastosDetalle.filter(g => g.id !== id));
   };
 
-  const handleAddTrabajoPactado = (e: React.FormEvent) => {
+  const handleAddTrabajoPactado = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrabajo || !newPactadoNombre.trim()) return;
 
     const tagsArray = newPactadoTags.split(',').map(t => t.trim()).filter(t => t);
     const newPactado = {
-      id: Date.now(),
+      id: Date.now().toString(),
       nombre: newPactadoNombre,
       foto: newPactadoFoto || `https://picsum.photos/seed/${Date.now()}/100/100`,
       tags: tagsArray
     };
 
-    const updatedData = portfolioData.map((item: any) =>
-      item.id === selectedTrabajo.id ? {
-        ...item,
-        trabajosPactados: [...(item.trabajosPactados || []), newPactado]
-      } : item
-    );
-
-    setPortfolioData(updatedData);
-    setSelectedTrabajo(updatedData.find((i: any) => i.id === selectedTrabajo.id));
+    const updatedPactados = [...(selectedTrabajo.trabajosPactados || []), newPactado];
+    await updatePortfolioInDB(selectedTrabajo.id, { trabajosPactados: updatedPactados });
+    setSelectedTrabajo({ ...selectedTrabajo, trabajosPactados: updatedPactados });
 
     setNewPactadoNombre('');
     setNewPactadoFoto('');
@@ -538,16 +533,12 @@ export default function Trabajos() {
     displayToast('Trabajo pactado agregado');
   };
 
-  const handleRemoveTrabajoPactado = (pactadoId: number) => {
+  const handleRemoveTrabajoPactado = async (pactadoId: string) => {
     if (!selectedTrabajo) return;
-    const updatedData = portfolioData.map((item: any) =>
-      item.id === selectedTrabajo.id ? {
-        ...item,
-        trabajosPactados: (item.trabajosPactados || []).filter((p: any) => p.id !== pactadoId)
-      } : item
-    );
-    setPortfolioData(updatedData);
-    setSelectedTrabajo(updatedData.find((i: any) => i.id === selectedTrabajo.id));
+    
+    const updatedPactados = (selectedTrabajo.trabajosPactados || []).filter((p: any) => p.id !== pactadoId);
+    await updatePortfolioInDB(selectedTrabajo.id, { trabajosPactados: updatedPactados });
+    setSelectedTrabajo({ ...selectedTrabajo, trabajosPactados: updatedPactados });
   };
 
   const handleOpenPactadoDetail = (pactado: any) => {
@@ -555,12 +546,12 @@ export default function Trabajos() {
     setIsPactadoDetailModalOpen(true);
   };
 
-  const handleAddPactadoArchivo = (e: React.FormEvent) => {
+  const handleAddPactadoArchivo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrabajo || !selectedPactado) return;
 
     const newArchivo = {
-      id: Date.now(),
+      id: Date.now().toString(),
       nombre: newPactadoArchivoNombre,
       url: newPactadoArchivoUrl
     };
@@ -570,15 +561,10 @@ export default function Trabajos() {
       archivos: [...(selectedPactado.archivos || []), newArchivo]
     };
 
-    const updatedData = portfolioData.map((item: any) =>
-      item.id === selectedTrabajo.id ? {
-        ...item,
-        trabajosPactados: (item.trabajosPactados || []).map((p: any) => p.id === selectedPactado.id ? updatedPactado : p)
-      } : item
-    );
-
-    setPortfolioData(updatedData);
-    setSelectedTrabajo(updatedData.find((i: any) => i.id === selectedTrabajo.id));
+    const updatedPactados = (selectedTrabajo.trabajosPactados || []).map((p: any) => p.id === selectedPactado.id ? updatedPactado : p);
+    await updatePortfolioInDB(selectedTrabajo.id, { trabajosPactados: updatedPactados });
+    
+    setSelectedTrabajo({ ...selectedTrabajo, trabajosPactados: updatedPactados });
     setSelectedPactado(updatedPactado);
 
     setNewPactadoArchivoNombre('');
@@ -586,12 +572,12 @@ export default function Trabajos() {
     displayToast('Archivo agregado');
   };
 
-  const handleAddPactadoHistorial = (e: React.FormEvent) => {
+  const handleAddPactadoHistorial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTrabajo || !selectedPactado) return;
 
     const newHistorial = {
-      id: Date.now(),
+      id: Date.now().toString(),
       fecha: new Date().toLocaleDateString('es-AR'),
       descripcion: newPactadoHistorial
     };
@@ -601,15 +587,10 @@ export default function Trabajos() {
       historial: [...(selectedPactado.historial || []), newHistorial]
     };
 
-    const updatedData = portfolioData.map((item: any) =>
-      item.id === selectedTrabajo.id ? {
-        ...item,
-        trabajosPactados: (item.trabajosPactados || []).map((p: any) => p.id === selectedPactado.id ? updatedPactado : p)
-      } : item
-    );
-
-    setPortfolioData(updatedData);
-    setSelectedTrabajo(updatedData.find((i: any) => i.id === selectedTrabajo.id));
+    const updatedPactados = (selectedTrabajo.trabajosPactados || []).map((p: any) => p.id === selectedPactado.id ? updatedPactado : p);
+    await updatePortfolioInDB(selectedTrabajo.id, { trabajosPactados: updatedPactados });
+    
+    setSelectedTrabajo({ ...selectedTrabajo, trabajosPactados: updatedPactados });
     setSelectedPactado(updatedPactado);
 
     setNewPactadoHistorial('');
@@ -675,9 +656,8 @@ export default function Trabajos() {
       const fileName = `Presupuesto_${selectedTrabajo.titulo.replace(/\s+/g, '_')}.pdf`;
       pdf.save(fileName);
 
-      // Save to Archivo
       const newFile = {
-        id: Date.now(),
+        id: Date.now().toString(),
         name: fileName,
         type: 'pdf',
         size: '1.2 MB',
@@ -737,30 +717,43 @@ export default function Trabajos() {
           </div>
         </header>
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSelectedTrabajo(null)}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ArrowLeft size={24} className="text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{selectedTrabajo.titulo}</h1>
-              <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
-                <span className="flex items-center gap-1"><MapPin size={14} /> {selectedTrabajo.ubicacion}</span>
-                <span>•</span>
-                <span>{selectedTrabajo.cliente}</span>
-                <span>•</span>
-                <span className={cn(
-                  "px-2 py-0.5 rounded-full text-xs font-medium",
-                  selectedTrabajo.estado === 'Completado' ? "bg-green-100 text-green-700" :
-                    selectedTrabajo.estado === 'En Proceso' ? "bg-blue-100 text-blue-700" :
-                      "bg-yellow-100 text-yellow-700"
-                )}>
-                  {selectedTrabajo.estado}
-                </span>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSelectedTrabajo(null)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"
+              >
+                <ArrowLeft size={24} className="text-gray-600" />
+              </button>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{selectedTrabajo.titulo}</h1>
+                <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
+                  <span className="flex items-center gap-1"><MapPin size={14} /> {selectedTrabajo.ubicacion}</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span>{selectedTrabajo.cliente}</span>
+                  <span className="hidden sm:inline">•</span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-xs font-medium",
+                    selectedTrabajo.estado === 'Completado' ? "bg-green-100 text-green-700" :
+                      selectedTrabajo.estado === 'En Proceso' ? "bg-blue-100 text-blue-700" :
+                        "bg-yellow-100 text-yellow-700"
+                  )}>
+                    {selectedTrabajo.estado}
+                  </span>
+                </div>
               </div>
             </div>
+            
+            <button
+              onClick={() => {
+                localStorage.setItem('inventario_search_query', selectedTrabajo.cliente || selectedTrabajo.titulo);
+                navigate('/inventario');
+              }}
+              className="w-full sm:w-auto bg-[#3A5F4B]/10 text-[#3A5F4B] px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 font-bold hover:bg-[#3A5F4B]/20 transition-colors shadow-sm ml-0 sm:ml-4 border border-[#3A5F4B]/20"
+            >
+              <Package size={20} />
+              <span>Ver Inventario Asignado</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1398,7 +1391,7 @@ export default function Trabajos() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredAnotaciones.map(nota => {
+          {filteredAnotaciones.map((nota: any) => {
             const isExpanded = expandedNoteId === nota.id;
             return (
               <div
