@@ -155,8 +155,8 @@ export default function Clientes() {
           try {
             const apiKey = companyData.geminiApiKey;
 
-            if (!apiKey || apiKey.trim().length < 10) {
-              alert("⚠️ Por favor configura tu Google Gemini API Key en:\n\nConfiguración -> Empresa -> Integraciones IA\n\nEs gratis, tarda 1 minuto, y se guarda para todo el equipo.");
+            if (!apiKey || apiKey.trim().length < 10 || !apiKey.trim().startsWith("AIzaSy")) {
+              alert("⚠️ Llave inválida.\n\nPor favor configura tu verdadera Google Gemini API Key (que debe empezar con 'AIzaSy...') en:\nConfiguración -> Empresa -> Integraciones IA.");
               setIsReadingPDF(false);
               return;
             }
