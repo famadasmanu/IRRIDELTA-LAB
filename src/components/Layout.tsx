@@ -20,7 +20,8 @@ import {
   Calculator,
   Moon,
   Sun,
-  Wifi
+  Wifi,
+  Activity
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
@@ -75,10 +76,10 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
     { path: '/inicio', icon: LayoutDashboard, label: 'Inicio' },
     { path: '/inventario', icon: Package, label: 'Inventario' },
     { path: '/clientes', icon: Users, label: 'Cuentas & Proyectos', badge: totalCuentasYProyectos > 0 ? totalCuentasYProyectos : undefined },
+    { path: '/herramientas', icon: Calculator, label: 'Herramientas' },
+    { path: '/ecosistema', icon: Activity, label: 'Ecosistema' },
     { path: '/archivo', icon: FolderOpen, label: 'Archivo' },
     { path: '/personal', icon: UserCheck, label: 'Equipo' },
-    { path: '/calculadora', icon: Calculator, label: 'Calc. Hidráulica' },
-    { path: '/controladores', icon: Wifi, label: 'Controladores' },
     { path: '/proveedor', icon: Truck, label: 'Proveedor' },
     { path: '/finanzas', icon: DollarSign, label: 'Finanzas' },
     { path: '/notificaciones', icon: Bell, label: 'Notificaciones', badge: unreadAlerts > 0 ? unreadAlerts : undefined },
@@ -88,10 +89,10 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
   const filteredMenuItems = menuItems.filter(item => {
     if (userRole === 'admin') return true;
     if (userRole === 'tecnico') {
-      return ['/inicio', '/inventario', '/clientes', '/calculadora', '/controladores', '/notificaciones'].includes(item.path);
+      return ['/inicio', '/inventario', '/clientes', '/herramientas', '/ecosistema', '/notificaciones'].includes(item.path);
     }
     if (userRole === 'vendedor') {
-      return ['/inicio', '/clientes', '/archivo', '/calculadora', '/controladores', '/finanzas', '/notificaciones'].includes(item.path);
+      return ['/inicio', '/clientes', '/archivo', '/herramientas', '/ecosistema', '/finanzas', '/notificaciones'].includes(item.path);
     }
     return true;
   });
@@ -107,7 +108,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
   const closeMobileMenu = () => setIsMobileOpen(false);
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-slate-900 flex transition-colors duration-200">
+    <div className="min-h-screen bg-main dark:bg-slate-900 bg-aurora text-tx-primary dark:text-slate-100 flex transition-colors duration-200">
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div
@@ -118,7 +119,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-[#3A5F4B] text-white flex flex-col transition-transform duration-300 ease-in-out",
+        "fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-[#1E2A28] dark:bg-[#3A5F4B] text-white flex flex-col transition-transform duration-300 ease-in-out border-r border-[#E3E8E6] dark:border-transparent",
         isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="py-8 flex items-center justify-center relative border-b border-white/10 px-4 min-h-[140px]">
@@ -150,8 +151,8 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
                 className={cn(
                   "flex items-center justify-between px-3 py-3 rounded-lg transition-colors min-h-[44px]",
                   isActive
-                    ? "bg-white text-[#3A5F4B]"
-                    : "text-white hover:bg-[#2d4a3a]"
+                    ? "bg-[#2F7D6B] dark:bg-white text-white dark:text-[#3A5F4B] shadow-sm font-medium"
+                    : "text-white/80 hover:bg-[#1E2A28] hover:text-white dark:text-white dark:hover:bg-[#2d4a3a]"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -161,7 +162,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
                 {item.badge && (
                   <span className={cn(
                     "text-xs font-bold px-2 py-0.5 rounded-full",
-                    isActive ? "bg-[#3A5F4B] text-white" : "bg-red-500 text-white"
+                    isActive ? "bg-[#2F7D6B] dark:bg-[#3A5F4B] text-white" : "bg-red-500 text-white"
                   )}>
                     {item.badge}
                   </span>
@@ -174,7 +175,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
         <div className="p-3 border-t border-white/10 flex flex-col gap-2">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors min-h-[44px] w-full text-white hover:bg-[#2d4a3a]"
+            className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors min-h-[44px] w-full text-white/80 hover:bg-[#1E2A28] hover:text-white dark:text-white dark:hover:bg-[#2d4a3a]"
           >
             {isDarkMode ? <Sun size={24} strokeWidth={1.5} /> : <Moon size={24} strokeWidth={1.5} />}
             <span className="font-medium">{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
@@ -191,7 +192,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto pb-20 md:pb-0">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <div className={location.pathname.includes('/herramientas') ? 'w-full h-full p-2 md:p-4' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}>
           <Outlet />
         </div>
       </main>
@@ -206,7 +207,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
               to={item.path}
               className={cn(
                 "flex flex-col items-center justify-center p-2 rounded-xl transition-colors min-w-[64px]",
-                isActive ? "text-[#3A5F4B] dark:text-emerald-400" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                isActive ? "text-[#2F7D6B] dark:text-[#3A5F4B]" : "text-[#6B7280] dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
               )}
             >
               <div className="relative flex items-center justify-center">

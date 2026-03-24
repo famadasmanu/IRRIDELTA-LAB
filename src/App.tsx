@@ -10,13 +10,13 @@ import Clientes from './pages/Clientes';
 import Archivo from './pages/Archivo';
 import Personal from './pages/Personal';
 import Proveedor from './pages/Proveedor';
-import Alertas from './pages/Alertas';
+ import Alertas from './pages/Alertas';
 import Configuracion from './pages/Configuracion';
 import Finanzas from './pages/Finanzas';
 import Login from './pages/Login';
 import PartnerDetalle from './pages/PartnerDetalle';
-import Calculadora from './pages/Calculadora';
-import Controladores from './pages/Controladores';
+import Herramientas from './pages/Herramientas';
+import Ecosistema from './pages/Ecosistema';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -36,9 +36,9 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#CCCCCA] flex flex-col justify-center items-center">
+      <div className="min-h-screen bg-main flex flex-col justify-center items-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        <p className="mt-4 text-slate-600 font-medium">Comprobando sesión...</p>
+        <p className="mt-4 text-tx-secondary font-medium">Comprobando sesión...</p>
       </div>
     );
   }
@@ -57,25 +57,25 @@ export default function App() {
             {/* Todas las rutas base */}
             <Route path="inicio" element={<Inicio />} />
             <Route path="clientes" element={<Clientes />} />
-            <Route path="calculadora" element={<Calculadora />} />
-            <Route path="controladores" element={<Controladores />} />
+            <Route path="herramientas" element={<Herramientas />} />
             <Route path="notificaciones" element={<Alertas />} />
             <Route path="configuracion" element={<Configuracion />} />
+            <Route path="ecosistema" element={<Ecosistema />} />
             <Route path="partner/:id" element={<PartnerDetalle />} />
 
-            {/* Rutas exclusivas para admin y tecnico */}
-            <Route element={<ProtectedRoute allowedRoles={['admin', 'tecnico']} />}>
+            {/* Rutas exclusivas para operaciones, instalación y arquitectura */}
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'tecnico', 'instalador', 'operario', 'profesional']} />}>
               <Route path="trabajos" element={<Trabajos />} />
               <Route path="inventario" element={<Inventario />} />
             </Route>
 
-            {/* Rutas exclusivas para admin y vendedor */}
-            <Route element={<ProtectedRoute allowedRoles={['admin', 'vendedor']} />}>
+            {/* Rutas exclusivas para ventas y arquitectura */}
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'vendedor', 'profesional']} />}>
               <Route path="archivo" element={<Archivo />} />
               <Route path="finanzas" element={<Finanzas />} />
             </Route>
 
-            {/* Rutas exclusivas para admin */}
+            {/* Rutas exclusivas para RRHH y Proveedores (management) */}
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route path="personal" element={<Personal />} />
               <Route path="proveedor" element={<Proveedor />} />

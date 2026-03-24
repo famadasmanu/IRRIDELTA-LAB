@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Básicos de sesión
+    function isAuthenticated() { return request.auth != null; }
+    function isAnonymous() { return request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+
+    // Validación de roles desde la colección maestra "users"
+    function getRole() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc == null ? 'ninguno' : userDoc.data.role;
+    }
+
+    // Clasificación Rápida
+    function isAdmin() { return getRole() == 'admin'; }
+    function isTecnico() { return getRole() == 'tecnico' || isAdmin(); }
+    function isVendedor() { return getRole() == 'vendedor' || isAdmin(); }
+    function isOperario() { return getRole() == 'operario' || isTecnico() || isVendedor(); } // Basic employee
+
+    function isGuestBypass() { return isAnonymous(); } // El modo invitado tiene lectura libre como demo
+
+    // -------- REGLAS ESPECÍFICAS DE COLECCIONES -------- //
+    
+    // 0. Configuración global (Logo y metadata pública)
+    match /public_config/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isAdmin();
+    }
+
+    // 1. Colección de Seguridad (Roles)
+    match /users/{userId} {
+      // Uno lee su rol, los admins o demos leen todos los roles
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isGuestBypass());
+      // Admins rigen, pero debes poder crearte por primera vez
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (isAdmin() || request.auth.uid == userId);
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+
+    // 2. Colecciones de Alta Sensibilidad (Gerencia y RRHH)
+    match /personal_staff/{document=**} {
+      allow read: if isAuthenticated() && (isAdmin() || isGuestBypass());
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /finanzas/{document=**} {
+      allow read: if isAuthenticated() && (isAdmin() || isGuestBypass());
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /proveedores/{document=**} {
+      allow read: if isAuthenticated() && (isAdmin() || isGuestBypass());
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+
+    // 3. Colecciones Operativas y de Ventas (Archivos, Trabajos, Clientes)
+    match /clientes/{document=**} {
+      allow read: if isAuthenticated();
+      // Tec y Vend pueden escribir, admin también
+      allow write: if isAuthenticated() && !isAnonymous() && (isTecnico() || isVendedor());
+    }
+    match /archivos/{document=**} {
+      allow read: if isAuthenticated() && (isVendedor() || isGuestBypass());
+      allow write: if isAuthenticated() && !isAnonymous() && isVendedor();
+    }
+    match /trabajos/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+    }
+    match /inventario/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+    }
+    match /maquinaria/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+    }
+    match /aditivos/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+    }
+    match /materiales/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+    }
+
+    // 4. Fallback Global para Todo lo Demás (Ej: Alertas, etc)
+    match /{collection}/{document=**} {
+      // Lectura por defecto abierta para que la app no cruja.
+      allow read: if isAuthenticated();
+      // Escritura por defecto solo para usuarios registrados que tengan algún rol (no anonimos, no recien creados sin rol)
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
+    }
+  }
+}

@@ -1,0 +1,10 @@
+rules_version = '2';
+// Rules for Firebase Storage
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Solo las cuentas creadas (como la tuya de famadasmanu) podrán subir o ver fotos/pdfs
+      allow read, write: if request.auth != null;
+    }
+  }
+}

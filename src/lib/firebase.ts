@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'; // Triggering HMR
 import { getFirestore } from 'firebase/firestore';
-
-// TODO: Reemplaza con la configuración de tu proyecto Firebase (IRRIDELTA LABS)
+import { getStorage } from 'firebase/storage';
+// TODO: Reemplaza con la configuración de tu proyecto Firebase (Argent Software LABS)
 // Puedes encontrar esto en Consola de Firebase -> Configuración del proyecto -> Mis apps
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -23,6 +23,7 @@ export const googleProvider = new GoogleAuthProvider();
 
 // Initialize Cloud Firestore
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Authentication Helpers
 export const signInWithGoogle = async () => {
