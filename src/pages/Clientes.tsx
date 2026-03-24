@@ -36,15 +36,29 @@ const customMarkerIcon = (imageUrl: string) => L.divIcon({
   popupAnchor: [0, -26]
 });
 
-function MapController({ clients }: { clients: any[] }) {
+function MapController({ clients, selectedClient }: { clients: any[], selectedClient?: any }) {
   const map = useMap();
   React.useEffect(() => {
-    const clientsWithCoords = clients.filter(c => c.lat && c.lng);
-    if (clientsWithCoords.length > 0) {
-      const bounds = L.latLngBounds(clientsWithCoords.map(c => [c.lat, c.lng]));
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    if (selectedClient && selectedClient.lat && selectedClient.lng) {
+      map.flyTo([selectedClient.lat, selectedClient.lng], 16, { animate: true, duration: 1.5 });
+    } else {
+      const clientsWithCoords = clients.filter(c => c.lat && c.lng);
+      if (clientsWithCoords.length > 0) {
+        const bounds = L.latLngBounds(clientsWithCoords.map(c => [c.lat, c.lng]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      }
     }
-  }, [clients, map]);
+  }, [clients, selectedClient, map]);
+  return null;
+}
+
+function PickerMapController({ pos }: { pos: [number, number] | null }) {
+  const map = useMap();
+  React.useEffect(() => {
+    if (pos) {
+      map.flyTo(pos, 16);
+    }
+  }, [pos, map]);
   return null;
 }
 
@@ -402,7 +416,7 @@ export default function Clientes() {
         {/* Mapa y Tarjeta Emergente de Cliente Seleccionado */}
         <div className="flex-1 bg-main rounded-2xl shadow-sm border border-bd-lines overflow-hidden relative z-0 min-h-[400px]">
           <MapContainer center={[-34.6037, -58.3816]} zoom={10} style={{ height: '100%', width: '100%' }}>
-            <MapController clients={filteredClients} />
+            <MapController clients={filteredClients} selectedClient={selectedClientMap} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -621,12 +635,31 @@ export default function Clientes() {
                 />
                 <button
                   type="button"
-                  onClick={() => setIsMapPickerOpen(true)}
+                  onClick={async () => {
+                    const locText = editingClient ? editingClient.location : newClient.location;
+                    const hasCoords = (editingClient?.lat && editingClient?.lng) || (newClient?.lat && newClient?.lng);
+                    
+                    if (locText && !hasCoords) {
+                      try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locText + ', Argentina')}&limit=1`);
+                        const data = await res.json();
+                        if (data && data.length > 0) {
+                           const lat = parseFloat(data[0].lat);
+                           const lng = parseFloat(data[0].lon);
+                           if (editingClient) setEditingClient({ ...editingClient, lat, lng });
+                           else setNewClient({ ...newClient, lat, lng });
+                        }
+                      } catch(e) {
+                         console.error("Geocoding failed", e);
+                      }
+                    }
+                    setIsMapPickerOpen(true);
+                  }}
                   className="px-3 bg-card hover:bg-main border border-bd-lines text-tx-primary rounded-xl flex items-center gap-1 transition-colors"
-                  title="Seleccionar en el mapa"
+                  title="Ubicar en el mapa"
                 >
                   <MapPin size={18} className={((editingClient?.lat && editingClient?.lng) || (newClient?.lat && newClient?.lng)) ? 'text-accent' : 'text-tx-secondary'} />
-                  {((editingClient?.lat && editingClient?.lng) || (newClient?.lat && newClient?.lng)) ? 'Ok' : 'Mapa'}
+                  {((editingClient?.lat && editingClient?.lng) || (newClient?.lat && newClient?.lng)) ? 'Reubicar' : 'Ubicar'}
                 </button>
               </div>
             </div>
@@ -690,9 +723,9 @@ export default function Clientes() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             {(() => {
-              // Temporary component inside to grab clicks
+              const pos = editingClient ? (editingClient.lat ? [editingClient.lat, editingClient.lng] as [number, number] : null) : (newClient.lat ? [newClient.lat, newClient.lng] as [number, number] : null);
+              
               const LocationMarker = () => {
-                const pos = editingClient ? (editingClient.lat ? [editingClient.lat, editingClient.lng] : null) : (newClient.lat ? [newClient.lat, newClient.lng] : null);
                 useMapEvents({
                   click(e) {
                     if (editingClient) {
@@ -702,9 +735,15 @@ export default function Clientes() {
                     }
                   },
                 });
-                return pos ? <Marker position={pos as [number, number]} icon={customMarkerIcon(editingClient?.image || newClient?.image || 'https://via.placeholder.com/150')} /> : null;
+                return pos ? <Marker position={pos} icon={customMarkerIcon(editingClient?.image || newClient?.image || 'https://via.placeholder.com/150')} /> : null;
               };
-              return <LocationMarker />;
+              
+              return (
+                <>
+                  <PickerMapController pos={pos} />
+                  <LocationMarker />
+                </>
+              );
             })()}
           </MapContainer>
         </div>

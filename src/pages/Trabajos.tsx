@@ -110,6 +110,7 @@ export default function Trabajos() {
     const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     const [isSearchingMap, setIsSearchingMap] = useState(false);
     const { data: clientesData } = useFirestoreCollection<any>('clientes');
+    const { data: invData, add: addInv, update: updateInv } = useFirestoreCollection<any>('inventario_generales');
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
@@ -346,18 +347,102 @@ export default function Trabajos() {
         if (!selectedTrabajo) return;
 
         const id = selectedTrabajo.id;
+
+        const currentChecklist = selectedTrabajo.checklist || [];
+        const existingChecklistNames = new Set(currentChecklist.map((i: any) => i.text?.toLowerCase().trim()));
+        const newChecklistItems = gastosDetalle.filter(g => !existingChecklistNames.has((g.descripcion || '').toLowerCase().trim())).map(g => ({
+            id: Date.now() + Math.random(),
+            text: g.descripcion,
+            qty: g.cantidad || 1,
+            isChecked: false
+        }));
+
+        const currentAssigned = selectedTrabajo.assignedItems || [];
+        const existingAssignedNames = new Set(currentAssigned.map((i: any) => i.name?.toLowerCase().trim()));
+        const newAssignedItems = gastosDetalle.filter(g => !existingAssignedNames.has((g.descripcion || '').toLowerCase().trim())).map(g => ({
+            id: Date.now() + Math.random(),
+            name: g.descripcion,
+            qty: g.cantidad || 1
+        }));
+
         const updateData = {
             gastos: gastosToUse,
             rentabilidad: Number(metricsForm.rentabilidad) || 0,
             gastoDistancia: Number(metricsForm.gastoDistancia) || 0,
             fechaInicio: metricsForm.fechaInicio,
             estado: metricsForm.estado,
-            gastosDetalle: gastosDetalle
+            gastosDetalle: gastosDetalle,
+            checklist: [...currentChecklist, ...newChecklistItems],
+            assignedItems: [...currentAssigned, ...newAssignedItems]
         };
         await updatePortfolioInDB(id, updateData);
 
         setSelectedTrabajo({ ...selectedTrabajo, ...updateData });
-        displayToast('Métricas y gastos guardados');
+        displayToast('Métricas e Inventario vinculados y guardados');
+    };
+
+    const handleSyncStockToGlobal = async () => {
+        if (!selectedTrabajo) {
+            alert("No hay trabajo seleccionado.");
+            return;
+        }
+        
+        if (gastosDetalle.length === 0) {
+            alert("No hay insumos en el desglose para sincronizar.");
+            return;
+        }
+
+        const clienteObj = clientesData.find((c: any) => c.name === selectedTrabajo.cliente);
+        const refClienteId = clienteObj ? clienteObj.id : 'sin-asignar';
+        const excludedCategories = ['Mano de Obra', 'Logística', 'Combustible'];
+        
+        let syncedCount = 0;
+        
+        // Push items that are NOT in the assigned checklist to the selected project's Items Asignados FIRST
+        const currentAssigned = selectedTrabajo.assignedItems || [];
+        const existingAssignedNames = new Set(currentAssigned.map((i: any) => i.name?.toLowerCase().trim()));
+        const newAssignedItems = gastosDetalle.filter(g => !existingAssignedNames.has((g.descripcion || '').toLowerCase().trim())).map(g => ({
+            id: Date.now() + Math.random(),
+            name: g.descripcion || 'Item',
+            qty: g.cantidad || 1
+        }));
+        const updatedAssigned = [...currentAssigned, ...newAssignedItems];
+        await updatePortfolioInDB(selectedTrabajo.id, { assignedItems: updatedAssigned });
+        setSelectedTrabajo({ ...selectedTrabajo, assignedItems: updatedAssigned });
+
+        // Push unique items to inventario_generales
+        for (const gasto of gastosDetalle) {
+            const cat = gasto.categoria || '';
+            if (excludedCategories.includes(cat)) continue;
+            
+            const matchIng = invData.find((inv: any) => (inv.clienteNombre || '') === (selectedTrabajo.cliente || '') && (inv.nombre || '').toLowerCase().trim() === (gasto.descripcion || '').toLowerCase().trim());
+            
+            // "no sumamos cantidades individuales sino items": 
+            // Esto significa que si el item ya fue creado en el inventario para este proyecto, NO actualizamos las cantidades sumando a ciegas.
+            // Solamente creamos el ítem como "lote" si no existía registrado aún para este cliente.
+            if (!matchIng) {
+                try {
+                    await addInv({
+                        nombre: gasto.descripcion || 'Item Extr.',
+                        cantidad: Number(gasto.cantidad) || 1,
+                        unidad: 'Unid',
+                        clienteId: refClienteId,
+                        clienteNombre: selectedTrabajo.cliente || 'Sin Cliente',
+                        categoriaGeneral: cat || 'Insumos',
+                        imagenUrl: ''
+                    });
+                    syncedCount++;
+                } catch (e) {
+                     console.error("Error adding to inventory:", e);
+                }
+            }
+        }
+        
+        if (syncedCount > 0) {
+            displayToast(`¡Sincronización completa! ${syncedCount} insumos fueron enviados al inventario del cliente.`);
+        } else {
+            displayToast(`Los insumos ya se encontraban registrados en el inventario del cliente.`);
+        }
     };
 
     const cargarPlantillaJardineria = () => {
@@ -795,6 +880,9 @@ export default function Trabajos() {
                                         <input type="file" ref={pdfImportRef} onChange={handleImportarCostosPDF} accept=".pdf" className="hidden" />
                                         <button onClick={() => pdfImportRef.current?.click()} disabled={isImportingPDF} className="text-xs bg-indigo-500/10 text-indigo-600 px-3 py-2 rounded-xl font-bold hover:bg-indigo-500/20 transition-colors flex items-center gap-1">
                                             <FileText size={14} /> {isImportingPDF ? 'Leyendo...' : 'Importar PDF'}
+                                        </button>
+                                        <button onClick={handleSyncStockToGlobal} disabled={gastosDetalle.length === 0} className="text-xs bg-emerald-500/10 text-emerald-600 px-3 py-2 rounded-xl font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1">
+                                            <Package size={14} /> Sumar al Inventario
                                         </button>
                                         <button onClick={cargarPlantillaJardineria} className="text-xs bg-accent/10 text-accent px-3 py-2 rounded-xl font-bold hover:bg-accent/20 transition-colors">
                                             Plantilla Jardinería
