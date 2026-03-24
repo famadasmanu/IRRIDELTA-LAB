@@ -4,6 +4,7 @@ import { Search, Filter, MapPin, Calendar, Plus, Image as ImageIcon, FileText, T
 import { cn } from '../lib/utils';
 import { Modal } from '../components/Modal';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useCompanyConfig } from '../hooks/useCompanyConfig';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
@@ -52,6 +53,7 @@ function LocationPicker({ position, setPosition }: { position: [number, number] 
 
 
 export default function Trabajos() {
+    const [companyData] = useCompanyConfig();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     React.useEffect(() => {
@@ -554,8 +556,13 @@ export default function Trabajos() {
         if (!file) return;
 
         try {
-            // Usar la misma API de la app (GCP) que ya tiene permisos para Gemini
-            const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+            const apiKey = companyData.geminiApiKey;
+
+            if (!apiKey || apiKey.trim().length < 10) {
+                alert("⚠️ Por favor configura tu Google Gemini API Key en:\n\nConfiguración -> Empresa -> Integraciones IA\n\nEs gratis, tarda 1 minuto, y se guarda para todo el equipo.");
+                setIsImportingPDF(false);
+                return;
+            }
 
             if (apiKey && apiKey.trim().length > 10) {
                 setIsImportingPDF(true);

@@ -560,6 +560,22 @@ export default function Configuracion() {
  </div>
  </section>
 
+ {/* AI Integration Section */}
+ <section className="mb-8">
+ <h3 className="text-lg font-bold mb-4 text-accent">Integraciones Asistente IA</h3>
+ <div>
+ <label className="block text-sm font-semibold text-tx-secondary mb-1.5">Google Gemini API Key</label>
+ <p className="text-xs text-tx-secondary mb-3">Tu clave global para lectura de PDFs y predicciones. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-accent hover:underline">Consíguela gratis aquí</a>.</p>
+ <input
+ className="w-full px-4 py-3 rounded-xl border border-bd-lines bg-card focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none transition-all text-tx-primary"
+ placeholder="AIzaSy..."
+ type="password"
+ value={companyData.geminiApiKey}
+ onChange={e => setCompanyData({ ...companyData, geminiApiKey: e.target.value })}
+ />
+ </div>
+ </section>
+
  {/* Legal Terms Section */}
  <section className="mb-8">
  <h3 className="text-lg font-bold mb-4 text-accent">Términos Legales</h3>

@@ -9,6 +9,7 @@ export interface CompanyConfig {
   terminos: string;
   logo: string;
   showLogoInDashboard: boolean;
+  geminiApiKey: string;
 }
 
 const DEFAULT_COMPANY: CompanyConfig = {
@@ -17,7 +18,8 @@ const DEFAULT_COMPANY: CompanyConfig = {
   direccion: 'Av. Libertador 1234, CABA',
   terminos: '',
   logo: '',
-  showLogoInDashboard: true
+  showLogoInDashboard: true,
+  geminiApiKey: ''
 };
 
 export function useCompanyConfig() {

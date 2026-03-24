@@ -6,6 +6,7 @@ import { storage } from '../lib/firebase';
 import { Leaf, User, Search, CheckCircle2, MapPin, Calendar, Clock, CheckCircle, Phone, Map as MapIcon, Edit2, Trash2, FileText, Plus, Droplets, Activity, Grid, MessageCircle, Image as ImageIcon, Wrench, X, Archive, Package, Calculator, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useCompanyConfig } from '../hooks/useCompanyConfig';
 import { Modal } from '../components/Modal';
 import { PresupuestoFormalModal } from '../components/PresupuestoFormalModal';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
@@ -58,6 +59,7 @@ const getIcon = (name: string) => {
 };
 
 export default function Clientes() {
+  const [companyData] = useCompanyConfig();
   const { data: clientsRaw, add: addClientToDB, update: updateClientInDB, remove: removeClientFromDB } = useFirestoreCollection<any>('clientes');
   const clientsData = clientsRaw;
 
@@ -151,8 +153,13 @@ export default function Clientes() {
           let extractedItems: any[] = [];
 
           try {
-            // Usar la misma API de la app (GCP) que ya tiene permisos para Gemini
-            const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+            const apiKey = companyData.geminiApiKey;
+
+            if (!apiKey || apiKey.trim().length < 10) {
+              alert("⚠️ Por favor configura tu Google Gemini API Key en:\n\nConfiguración -> Empresa -> Integraciones IA\n\nEs gratis, tarda 1 minuto, y se guarda para todo el equipo.");
+              setIsReadingPDF(false);
+              return;
+            }
 
             if (apiKey && apiKey.trim().length > 10) {
               alert("Iniciando escaneo con Google IA...");
