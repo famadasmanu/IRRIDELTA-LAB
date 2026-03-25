@@ -9,54 +9,36 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
 import { Modal } from '../components/Modal';
 import { PresupuestoFormalModal } from '../components/PresupuestoFormalModal';
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { jsPDF } from 'jspdf';
 
-// @ts-ignore
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-// @ts-ignore
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-// @ts-ignore
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-});
-
-const customMarkerIcon = (imageUrl: string) => L.divIcon({
-  className: 'custom-avatar-marker',
-  html: `<div style="width: 44px; height: 44px; border-radius: 50%; border: 3px solid #059669; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); background-image: url('${imageUrl}'); background-size: cover; background-position: center; background-color: white;"></div>`,
-  iconSize: [44, 44],
-  iconAnchor: [22, 22],
-  popupAnchor: [0, -26]
-});
+const GOOGLE_MAPS_API_KEY = "AIzaSyDTrhgjJJBKfB8vG5RmuyymqY3pnORX-xI";
 
 function MapController({ clients, selectedClient }: { clients: any[], selectedClient?: any }) {
   const map = useMap();
   React.useEffect(() => {
+    if (!map) return;
     if (selectedClient && selectedClient.lat && selectedClient.lng) {
-      map.flyTo([selectedClient.lat, selectedClient.lng], 16, { animate: true, duration: 1.5 });
+      map.panTo({ lat: selectedClient.lat, lng: selectedClient.lng });
+      map.setZoom(16);
     } else {
       const clientsWithCoords = clients.filter(c => c.lat && c.lng);
       if (clientsWithCoords.length > 0) {
-        const bounds = L.latLngBounds(clientsWithCoords.map(c => [c.lat, c.lng]));
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        const bounds = new window.google.maps.LatLngBounds();
+        clientsWithCoords.forEach(c => bounds.extend({ lat: c.lat, lng: c.lng }));
+        map.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
       }
     }
   }, [clients, selectedClient, map]);
   return null;
 }
 
-function PickerMapController({ pos }: { pos: [number, number] | null }) {
+function PickerMapController({ pos }: { pos: {lat: number, lng: number} | null }) {
   const map = useMap();
   React.useEffect(() => {
-    if (pos) {
-      map.flyTo(pos, 16);
+    if (map && pos) {
+      map.panTo(pos);
+      map.setZoom(16);
     }
   }, [pos, map]);
   return null;
@@ -415,27 +397,34 @@ export default function Clientes() {
 
         {/* Mapa y Tarjeta Emergente de Cliente Seleccionado */}
         <div className="flex-1 bg-main rounded-2xl shadow-sm border border-bd-lines overflow-hidden relative z-0 min-h-[400px]">
-          <MapContainer center={[-34.6037, -58.3816]} zoom={10} style={{ height: '100%', width: '100%' }}>
-            <MapController clients={filteredClients} selectedClient={selectedClientMap} />
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {filteredClients.map((client: any) => (
-              client.lat && client.lng && (
-                <Marker
-                  key={client.id}
-                  position={[client.lat, client.lng]}
-                  icon={customMarkerIcon(client.image)}
-                  eventHandlers={{ click: () => setSelectedClientMap(client) }}
-                >
-                  <Popup>
-                    <strong className="text-sm block text-center">{client.name}</strong>
-                  </Popup>
-                </Marker>
-              )
-            ))}
-          </MapContainer>
+          <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+            <Map 
+               defaultCenter={{lat: -34.6037, lng: -58.3816}} 
+               defaultZoom={10} 
+               gestureHandling={'greedy'}
+               disableDefaultUI={false}
+            >
+              <MapController clients={filteredClients} selectedClient={selectedClientMap} />
+              
+              {filteredClients.map((client: any) => {
+                // Crear objeto de ícono para Marker tradicional si hay imagen redonda
+                const markerIcon = client.image ? {
+                  url: client.image,
+                  scaledSize: window.google ? new window.google.maps.Size(44, 44) : null,
+                } : undefined;
+
+                return client.lat && client.lng && (
+                  <Marker
+                    key={client.id}
+                    position={{lat: client.lat, lng: client.lng}}
+                    onClick={() => setSelectedClientMap(client)}
+                    title={client.name}
+                    icon={markerIcon}
+                  />
+                );
+              })}
+            </Map>
+          </APIProvider>
 
           {/* Tarjeta Emergente del Cliente Seleccionado (Over the map) */}
           {selectedClientMap && (
@@ -631,23 +620,34 @@ export default function Clientes() {
                   value={editingClient ? editingClient.location : newClient.location}
                   onChange={e => editingClient ? setEditingClient({ ...editingClient, location: e.target.value }) : setNewClient({ ...newClient, location: e.target.value })}
                   className="flex-1 px-4 py-2 bg-main border border-bd-lines rounded-xl text-tx-primary focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
-                  placeholder="Dirección descriptiva"
+                  placeholder="Ej: Belgrano 3375, Benavidez"
                 />
                 <button
                   type="button"
                   onClick={async () => {
                     const locText = editingClient ? editingClient.location : newClient.location;
-                    const hasCoords = (editingClient?.lat && editingClient?.lng) || (newClient?.lat && newClient?.lng);
-                    
-                    if (locText && !hasCoords) {
+                    if (locText) {
                       try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locText + ', Argentina')}&limit=1`);
+                        let searchTerm = locText;
+                        if (!searchTerm.toLowerCase().includes('argentina') && !searchTerm.toLowerCase().includes('buenos aires') && !searchTerm.toLowerCase().includes('caba')) {
+                          searchTerm += ", Provincia de Buenos Aires, Argentina";
+                        } else if (!searchTerm.toLowerCase().includes('argentina')) {
+                          searchTerm += ", Argentina";
+                        }
+
+                        // Búsqueda Inteligente usando Google Maps Geocoding API con la LLave Global
+                        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(searchTerm)}&key=${GOOGLE_MAPS_API_KEY}`);
                         const data = await res.json();
-                        if (data && data.length > 0) {
-                           const lat = parseFloat(data[0].lat);
-                           const lng = parseFloat(data[0].lon);
+                        
+                        if (data.status === 'OK' && data.results && data.results.length > 0) {
+                           const location = data.results[0].geometry.location;
+                           const lat = location.lat;
+                           const lng = location.lng;
+                           
                            if (editingClient) setEditingClient({ ...editingClient, lat, lng });
                            else setNewClient({ ...newClient, lat, lng });
+                        } else {
+                           console.warn("Google Maps no encontró la ubicación exacta. Fallback activado.");
                         }
                       } catch(e) {
                          console.error("Geocoding failed", e);
@@ -655,11 +655,11 @@ export default function Clientes() {
                     }
                     setIsMapPickerOpen(true);
                   }}
-                  className="px-3 bg-card hover:bg-main border border-bd-lines text-tx-primary rounded-xl flex items-center gap-1 transition-colors"
-                  title="Ubicar en el mapa"
+                  className="px-4 py-2 bg-accent/10 hover:bg-accent/20 border-accent/30 border text-accent font-semibold rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap"
+                  title="Buscar esta dirección en Google Maps"
                 >
-                  <MapPin size={18} className={((editingClient?.lat && editingClient?.lng) || (newClient?.lat && newClient?.lng)) ? 'text-accent' : 'text-tx-secondary'} />
-                  {((editingClient?.lat && editingClient?.lng) || (newClient?.lat && newClient?.lng)) ? 'Reubicar' : 'Ubicar'}
+                  <Search size={18} />
+                  <span>🔎 Buscar en Mapa</span>
                 </button>
               </div>
             </div>
@@ -714,38 +714,44 @@ export default function Clientes() {
       <Modal
         isOpen={isMapPickerOpen}
         onClose={() => setIsMapPickerOpen(false)}
-        title="Seleccionar Ubicación"
+        title="Ajustar Ubicación"
       >
+        <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-sm text-blue-400 font-medium">
+          <p>📍 Si la ubicación automática no es exacta, <strong>haz clic en cualquier parte del mapa</strong> para colocar el marcador manualmente.</p>
+        </div>
         <div className="h-[400px] w-full bg-main rounded-xl overflow-hidden relative border border-bd-lines">
-          <MapContainer center={[-34.6037, -58.3816]} zoom={11} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              attribution='&copy; OpenStreetMap contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {(() => {
-              const pos = editingClient ? (editingClient.lat ? [editingClient.lat, editingClient.lng] as [number, number] : null) : (newClient.lat ? [newClient.lat, newClient.lng] as [number, number] : null);
-              
-              const LocationMarker = () => {
-                useMapEvents({
-                  click(e) {
-                    if (editingClient) {
-                      setEditingClient({ ...editingClient, lat: e.latlng.lat, lng: e.latlng.lng });
-                    } else {
-                      setNewClient({ ...newClient, lat: e.latlng.lat, lng: e.latlng.lng });
-                    }
-                  },
-                });
-                return pos ? <Marker position={pos} icon={customMarkerIcon(editingClient?.image || newClient?.image || 'https://via.placeholder.com/150')} /> : null;
-              };
-              
-              return (
-                <>
-                  <PickerMapController pos={pos} />
-                  <LocationMarker />
-                </>
-              );
-            })()}
-          </MapContainer>
+          <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+            <Map 
+               defaultCenter={{lat: -34.6037, lng: -58.3816}} 
+               defaultZoom={11} 
+               gestureHandling={'greedy'}
+               onClick={(e) => {
+                  if (!e.detail.latLng) return;
+                  const latLng = e.detail.latLng;
+                  if (editingClient) {
+                    setEditingClient({ ...editingClient, lat: latLng.lat, lng: latLng.lng });
+                  } else {
+                    setNewClient({ ...newClient, lat: latLng.lat, lng: latLng.lng });
+                  }
+               }}
+            >
+              {(() => {
+                const pos = editingClient ? (editingClient.lat ? {lat: editingClient.lat, lng: editingClient.lng} : null) : (newClient.lat ? {lat: newClient.lat, lng: newClient.lng} : null);
+                const currentImage = editingClient?.image || newClient?.image;
+                const activeIcon = currentImage ? {
+                  url: currentImage,
+                  scaledSize: window?.google ? new window.google.maps.Size(44, 44) : null,
+                } : undefined;
+
+                return (
+                  <>
+                    <PickerMapController pos={pos} />
+                    {pos && <Marker position={pos} icon={activeIcon} />}
+                  </>
+                );
+              })()}
+            </Map>
+          </APIProvider>
         </div>
         <div className="mt-4 flex justify-end gap-3">
           <button type="button" onClick={() => setIsMapPickerOpen(false)} className="px-4 py-2 bg-accent text-white font-semibold rounded-xl hover:opacity-90 shadow-md shadow-accent/20 transition-all">Confirmar</button>

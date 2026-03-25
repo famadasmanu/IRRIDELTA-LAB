@@ -97,15 +97,7 @@ export default function Inicio() {
 
   const unreadCount = irrideltaNews.filter(n => !readNews.includes(n.id)).length;
 
-  const [companyData] = useLocalConfig('config_company', {
-    nombre: 'GreenFields Landscapes',
-    cuit: '30-12345678-9',
-    direccion: 'Av. Libertador 1234, CABA',
-    terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
-    logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM',
-    showLogoInDashboard: true
-  });
-
+  const [companyData] = useCompanyConfig();
   const [profileData] = useLocalConfig('config_profile', {
     nombre: 'Admin',
     avatar: ''

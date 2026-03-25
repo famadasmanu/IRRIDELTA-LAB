@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Tonalidades de grises bases */
@@ -41,7 +41,7 @@
  * variables generadas por Tailwind v4
  */
 @layer theme {
-  [data-theme="dark"] {
+  :is(.dark) {
     --color-main: #0F172A;
     --color-card: rgba(30, 41, 59, 0.75);
     --color-tx-primary: #F1F5F9;
@@ -96,7 +96,7 @@
   border: 1px solid rgba(255, 255, 255, 0.8);
 }
 
-.dark .glass, [data-theme="dark"] .glass {
+.dark .glass {
   background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);

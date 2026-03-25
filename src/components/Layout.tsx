@@ -25,19 +25,12 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useCompanyConfig } from '../hooks/useCompanyConfig';
 
 export default function Layout({ onLogout }: { onLogout: () => void }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
-  const { data: companyDataRaw } = useFirestoreCollection<any>('config_company');
-  const companyData = companyDataRaw && companyDataRaw.length > 0 ? companyDataRaw[0] : {
-    nombre: 'GreenFields Landscapes',
-    cuit: '30-12345678-9',
-    direccion: 'Av. Libertador 1234, CABA',
-    terminos: 'El presupuesto tiene una validez de 15 días. Pago del 50% por adelantado.',
-    logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASkzUC9DNQrHglh2e6G7kg1CWectkzqVhy57Hmk5Y_xJ8h8Bx7GvT1k4Ly9_iy6dcXfpdIZQESlcPmdQKYj5YVSpvkKqmr_Vcuhdt0fKCfuqVjWxo_u4lnNkOhd2GWjVo9vAFHN1Kd03Kh0orAXNaQdZKMtek2kD1DzV1TChRTd3FyAjK1cTCGRn0-aX9LEmkINiHbPuecU-qOFxiU54SNvsbVAuLBX5H32OR8MoubDtTpE2E4NdLS3ZN6bCr4ZlxdCNOiztCVBLM'
-  };
-
+  const [companyData] = useCompanyConfig();
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
       const item = window.localStorage.getItem('theme_dark');
@@ -108,7 +101,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
   const closeMobileMenu = () => setIsMobileOpen(false);
 
   return (
-    <div className="min-h-screen bg-main dark:bg-slate-900 bg-aurora text-tx-primary dark:text-slate-100 flex transition-colors duration-200">
+    <div className="min-h-screen bg-main dark:bg-slate-900 text-tx-primary dark:text-slate-100 flex transition-colors duration-200">
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div
@@ -119,7 +112,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-[#1E2A28] dark:bg-[#3A5F4B] text-white flex flex-col transition-transform duration-300 ease-in-out border-r border-[#E3E8E6] dark:border-transparent",
+        "fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-[#1E2A28] dark:bg-slate-900 text-white flex flex-col transition-transform duration-300 ease-in-out border-r border-[#E3E8E6] dark:border-white/5",
         isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="py-8 flex items-center justify-center relative border-b border-white/10 px-4 min-h-[140px]">
