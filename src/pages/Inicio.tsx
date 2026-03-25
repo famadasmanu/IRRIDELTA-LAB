@@ -37,6 +37,7 @@ import {
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useLocalConfig } from '../hooks/useLocalConfig';
+import { useCompanyConfig } from '../hooks/useCompanyConfig';
 import { format, parseISO } from 'date-fns';
 import { auth } from '../lib/firebase';
 import { es } from 'date-fns/locale';
