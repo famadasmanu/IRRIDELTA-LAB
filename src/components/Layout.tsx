@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import {
+import {  
   LayoutDashboard,
   Wrench,
   Package,
@@ -22,7 +22,8 @@ import {
   Sun,
   Wifi,
   Activity
-} from 'lucide-react';
+  } from 'lucide-react';
+import { MagicLogo } from './MagicLogo';
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
@@ -122,15 +123,9 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
           >
             <X size={16} />
           </button>
-          {companyData.logo ? (
-            <img src={companyData.logo} alt={companyData.nombre} className="max-h-32 md:max-h-28 max-w-full object-contain" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="flex flex-col items-center gap-2 w-full justify-center">
-              <span className="font-extrabold text-2xl md:text-3xl tracking-widest uppercase text-center leading-tight">
-                {companyData.nombre || 'IRRIDELTA'}
-              </span>
-            </div>
-          )}
+          <div className="w-full h-full flex flex-col items-center justify-center pt-2 pb-4">
+            <MagicLogo />
+          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">

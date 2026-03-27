@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Leaf, Mail, Lock, Eye, EyeOff, Fingerprint, HelpCircle, UserPlus, AlertCircle } from 'lucide-react';
+import {   Leaf, Mail, Lock, Eye, EyeOff, Fingerprint, HelpCircle, UserPlus, AlertCircle   } from 'lucide-react';
+import { MagicLogo } from '../components/MagicLogo';
 
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -108,20 +109,7 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  <div className="w-full max-w-md relative z-10 my-8">
  {/* Logo outside the card, on the dark background */}
  <div className="flex flex-col items-center mb-8">
- {displayLogo ? (
- <div className="bg-white p-4 rounded-[2rem] shadow-[0_15px_40px_rgba(0,0,0,0.3)] border border-white/20 transition-all hover:scale-[1.02] mx-4 mb-4">
-    <img src={displayLogo} alt="Logo" className="max-h-24 md:max-h-28 object-contain" referrerPolicy="no-referrer" />
-  </div>
- ) : (
- <div className="flex flex-col items-center justify-center">
-    <h1 className="text-4xl font-black text-white tracking-tighter flex items-center gap-2 drop-shadow-lg">
-      <div className="bg-white text-accent p-2 rounded-xl leading-none shadow-xl">AR</div> GEN
-    </h1>
-    <span className="font-bold text-xs tracking-[0.3em] uppercase text-center mt-2 leading-tight text-white/90 drop-shadow-md">
-      SOFTWARE
-    </span>
-  </div>
- )}
+ <MagicLogo scale={1} className="drop-shadow-2xl mb-8" />
  </div>
 
  {/* Main Login Card */}
