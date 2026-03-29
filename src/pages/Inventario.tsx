@@ -8,8 +8,10 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { Modal } from '../components/Modal';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { storage } from '../lib/firebase';
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { db, storage } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
 import { MaquinariaTab } from './inventario/MaquinariaTab';
 import { AditivosTab } from './inventario/AditivosTab';
 import { GeneralesTab } from './inventario/GeneralesTab';
@@ -93,6 +95,9 @@ export default function Inventario() {
   const [isExportingMaterials, setIsExportingMaterials] = useState(false);
   const [showMaterialFilters, setShowMaterialFilters] = useState(false);
   
+  // Pagination states
+  const [visibleProjects, setVisibleProjects] = useState(10);
+  
   // Checklist de Pedido Global
   const [pedidoItems, setPedidoItems] = useState<any[]>([]);
   const [isPedidoModalOpen, setIsPedidoModalOpen] = useState(false);
@@ -123,8 +128,11 @@ export default function Inventario() {
 
     try {
       setIsUploadingImage(true);
-      const storageRef = ref(storage, `inventario/categories/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
+      const options = { maxSizeMB: 0.3, maxWidthOrHeight: 1200, useWebWorker: true };
+      const compressedFile = await imageCompression(file, options);
+      
+      const storageRef = ref(storage, `inventario/categories/${Date.now()}_img.jpg`);
+      await uploadBytes(storageRef, compressedFile);
       const url = await getDownloadURL(storageRef);
       const newImages = { ...categoryImages, [categoryKey]: url };
       setCategoryImages(newImages);
@@ -143,8 +151,11 @@ export default function Inventario() {
 
     try {
       setIsUploadingImage(true);
-      const storageRef = ref(storage, `inventario/projects/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
+      const options = { maxSizeMB: 0.3, maxWidthOrHeight: 1200, useWebWorker: true };
+      const compressedFile = await imageCompression(file, options);
+
+      const storageRef = ref(storage, `inventario/projects/${Date.now()}_img.jpg`);
+      await uploadBytes(storageRef, compressedFile);
       const url = await getDownloadURL(storageRef);
       if (editingProject) {
         setEditingProject({ ...editingProject, imagenUrl: url });
@@ -434,17 +445,36 @@ export default function Inventario() {
   return (
     <div className="flex flex-col font-sans pb-8 max-w-3xl mx-auto w-full">
       {/* Header */}
-      <header className="glass-card rounded-2xl p-4 mb-6">
-        <div className="flex items-center justify-between">
+      <header className="glass-card rounded-2xl p-4 mb-6 relative">
+        <div className="flex items-start md:items-center justify-between flex-col md:flex-row gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-accent/10 p-2 rounded-lg text-accent">
               <Archive size={24} />
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-tx-primary">Inventario</h1>
           </div>
-          <button className="size-10 flex items-center justify-center rounded-full bg-main text-tx-secondary">
-            <UserCircle size={20} />
-          </button>
+          <div className="flex items-center justify-between w-full md:w-auto gap-3">
+            {pedidoItems.length > 0 ? (
+              <button 
+                onClick={() => setIsPedidoModalOpen(true)}
+                className="flex items-center flex-1 justify-center gap-2 bg-[#25D366]/10 text-[#25D366] px-4 py-2.5 rounded-xl border border-[#25D366]/20 hover:bg-[#25D366]/20 transition-all font-bold text-sm shadow-sm"
+              >
+                <ShoppingCart size={18} />
+                <span>{pedidoItems.length} Elementos en Pedido</span>
+              </button>
+            ) : (
+              <button 
+                onClick={() => setIsPedidoModalOpen(true)}
+                className="flex items-center flex-1 justify-center gap-2 bg-main text-tx-secondary px-4 py-2.5 rounded-xl border border-bd-lines hover:bg-slate-200 transition-all font-bold text-sm shadow-sm"
+              >
+                <ShoppingCart size={18} />
+                <span>Pedido Vacío</span>
+              </button>
+            )}
+            <button className="size-10 flex shrink-0 items-center justify-center rounded-full bg-main text-tx-secondary shadow-sm">
+              <UserCircle size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -550,8 +580,8 @@ export default function Inventario() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredProjects.map(project => {
-              const checklistText = (project.checklist || []).filter((i: any) => !i.isChecked).map((i: any) => `- ${i.qty || 1}x ${i.text}`).join('%0A');
+            {filteredProjects.slice(0, visibleProjects).map(project => {
+              const checklistText = (Array.isArray(project.checklist) ? project.checklist : []).filter((i: any) => !i.isChecked).map((i: any) => `- ${i.qty || 1}x ${i.text}`).join('%0A');
               const whatsappMessage = `Hola equipo de Argent Software, necesito encargar los siguientes materiales y/o pedir presupuesto para el proyecto: ${project.name}.%0A%0AProductos a pedir:%0A${checklistText || 'Ninguno especificado'}`;
 
               return (
@@ -653,10 +683,23 @@ export default function Inventario() {
                 </div>
               )
             })}
-            {filteredProjects.length === 0 && (
+          </div>
+           
+           {/* Load More Button */}
+           {visibleProjects < filteredProjects.length && (
+             <div className="flex justify-center mt-6">
+               <button
+                 onClick={() => setVisibleProjects(prev => prev + 10)}
+                 className="px-6 py-2.5 bg-main text-tx-secondary font-bold rounded-xl border border-bd-lines hover:bg-slate-200 transition-colors shadow-sm"
+               >
+                 Cargar Más ({filteredProjects.length - visibleProjects} restantes)
+               </button>
+             </div>
+           )}
+ 
+           {filteredProjects.length === 0 && (
               <div className="text-center py-8 text-tx-secondary text-sm col-span-full">No se encontraron proyectos.</div>
             )}
-          </div>
         </section>
         )}
 
@@ -1424,19 +1467,7 @@ export default function Inventario() {
         </form>
       </Modal>
 
-      {/* Floating Check List Button */}
-      <button 
-        onClick={() => setIsPedidoModalOpen(true)}
-        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-[0_8px_30px_rgb(37,211,102,0.4)] transition-all z-50 flex items-center gap-2 border border-white/20 bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white hover:scale-110 ${pedidoItems.length > 0 ? 'ring-4 ring-[#25D366]/40' : 'hover:-translate-y-1'}`}
-        title="Ver Pedido a Proveedor"
-      >
-        <ShoppingCart size={24} />
-        {pedidoItems.length > 0 && (
-          <span className="font-bold bg-card text-[#25D366] px-2 py-0.5 rounded-full text-xs">
-            {pedidoItems.length}
-          </span>
-        )}
-      </button>
+
 
       <Modal isOpen={isPedidoModalOpen} onClose={() => setIsPedidoModalOpen(false)} title="Checklist de Pedido / Reposición (WhatsApp)">
         <div className="space-y-4">

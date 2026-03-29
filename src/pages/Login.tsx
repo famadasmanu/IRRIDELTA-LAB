@@ -102,48 +102,48 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  };
 
  return (
- <div className="min-h-screen bg-main flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+ <div className="min-h-[100dvh] bg-main flex flex-col items-center justify-center px-4 relative overflow-hidden font-sans w-full">
  {/* Dark background top half for logo visibility */}
- <div className="absolute top-0 left-0 w-full h-[350px] bg-accent"></div>
+ <div className="absolute top-0 left-0 w-full h-[250px] md:h-[350px] bg-accent"></div>
  
- <div className="w-full max-w-md relative z-10 my-8">
+ <div className="w-full max-w-md relative z-10 flex flex-col items-center justify-center py-4">
  {/* Logo outside the card, on the dark background */}
- <div className="flex flex-col items-center mb-8">
- <MagicLogo scale={1} className="drop-shadow-2xl mb-8" />
+ <div className="flex flex-col items-center mb-4 md:mb-8 w-full">
+ <MagicLogo scale={1} className="drop-shadow-2xl max-w-[220px] h-[78px] md:max-w-[280px] md:h-[100px]" />
  </div>
 
  {/* Main Login Card */}
- <div className="bg-card rounded-2xl p-8 md:p-10 shadow-2xl border border-bd-lines">
- <div className="flex flex-col items-center mb-8">
- <h1 className="text-3xl font-extrabold tracking-tight text-tx-primary">
+ <div className="bg-card rounded-2xl p-5 md:p-10 shadow-2xl border border-bd-lines w-full">
+ <div className="flex flex-col items-center mb-5 md:mb-8">
+ <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-tx-primary">
  {isRegistering ? 'Crear una cuenta' : 'Iniciar Sesión'}
  </h1>
- <p className="text-sm font-medium mt-2 text-tx-secondary text-center">
- {isRegistering ? 'Ingresa tus datos para registrarte' : 'Ingresa tus credenciales para acceder a tu cuenta'}
+ <p className="text-xs md:text-sm font-medium mt-1 md:mt-2 text-tx-secondary text-center">
+ {isRegistering ? 'Ingresa tus datos para registrarte' : 'Ingresa tus credenciales para acceder'}
  </p>
  </div>
 
  {/* Error Message */}
  {error && (
- <div className="mb-6 flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 font-medium">
- <AlertCircle className="w-5 h-5 shrink-0" />
+ <div className="mb-4 flex items-center gap-2 p-2.5 bg-red-50 text-red-600 rounded-xl text-xs md:text-sm border border-red-100 font-medium">
+ <AlertCircle className="w-4 h-4 shrink-0" />
  <p>{error}</p>
  </div>
  )}
 
  {/* Form */}
- <form className="space-y-5" onSubmit={handleEmailAuth}>
+ <form className="space-y-3.5 md:space-y-5" onSubmit={handleEmailAuth}>
  {/* Email Field */}
  <div>
- <label className="block text-sm font-bold text-tx-secondary mb-1.5">
+ <label className="block text-xs md:text-sm font-bold text-tx-secondary mb-1">
  Correo electrónico
  </label>
  <div className="relative">
- <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-tx-secondary w-5 h-5" />
+ <Mail className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-tx-secondary w-4 h-4 md:w-5 md:h-5" />
  <input
  type="email"
  placeholder="nombre@empresa.com"
- className="w-full bg-main border border-bd-lines text-tx-primary rounded-xl px-11 py-3 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+ className="w-full bg-main border border-bd-lines text-tx-primary rounded-xl px-9 md:px-11 py-2.5 md:py-3 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all text-sm md:text-base"
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  required
@@ -153,15 +153,15 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
 
  {/* Password Field */}
  <div>
- <label className="block text-sm font-bold text-tx-secondary mb-1.5">
+ <label className="block text-xs md:text-sm font-bold text-tx-secondary mb-1">
  Contraseña
  </label>
  <div className="relative">
- <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-tx-secondary w-5 h-5" />
+ <Lock className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-tx-secondary w-4 h-4 md:w-5 md:h-5" />
  <input
  type={showPassword ? "text" : "password"}
  placeholder="••••••••"
- className="w-full bg-main border border-bd-lines text-tx-primary rounded-xl pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all tracking-widest"
+ className="w-full bg-main border border-bd-lines text-tx-primary rounded-xl pl-9 md:pl-11 pr-10 py-2.5 md:py-3 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all tracking-widest text-sm md:text-base"
  value={password}
  onChange={(e) => setPassword(e.target.value)}
  required
@@ -169,9 +169,9 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  <button
  type="button"
  onClick={() => setShowPassword(!showPassword)}
- className="absolute right-3 top-1/2 -translate-y-1/2 text-tx-secondary hover:text-accent transition-colors p-1"
+ className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2 text-tx-secondary hover:text-accent transition-colors p-1"
  >
- {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+ {showPassword ? <EyeOff className="w-4 h-4 md:w-5 md:h-5" /> : <Eye className="w-4 h-4 md:w-5 md:h-5" />}
  </button>
  </div>
  </div>
@@ -180,7 +180,7 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  <button
  type="submit"
  disabled={loading}
- className="w-full bg-accent text-white font-bold text-lg py-3.5 mt-4 rounded-xl shadow-md hover:bg-[#15803d] hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center h-[54px]"
+ className="w-full bg-accent text-white font-bold md:text-lg py-2.5 md:py-3.5 mt-2 rounded-xl shadow-md hover:bg-[#15803d] hover:shadow-lg transition-all active:scale-[0.98] disabled:opacity-70 flex justify-center items-center h-[44px] md:h-[54px]"
  >
  {loading ? (
  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -190,28 +190,14 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  </button>
  </form>
 
- {/* Biometric Login */}
- {!isRegistering && (
- <div className="flex flex-col items-center justify-center mt-8 gap-3">
- <span className="text-sm font-semibold text-tx-secondary uppercase tracking-widest">O ingresa con tu huella</span>
- <button 
- type="button" 
- onClick={() => setError('La autenticación biométrica aún no está configurada.')}
- className="p-4 rounded-full bg-main border border-bd-lines text-accent hover:bg-accent hover:text-white transition-all shadow-sm group"
- >
- <Fingerprint className="w-8 h-8 group-hover:scale-110 transition-transform" />
- </button>
- </div>
- )}
-
  {/* Social Login (Google) */}
- <div className="mt-6 pt-6 border-t border-bd-lines">
+ <div className="mt-4 md:mt-6 pt-4 md:pt-6 border-t border-bd-lines flex flex-col gap-2.5">
  <button
  type="button"
  onClick={handleGoogleSignIn}
- className="w-full flex items-center justify-center gap-3 bg-card border border-bd-lines hover:bg-main py-3 rounded-xl font-bold text-tx-secondary transition-all shadow-sm"
+ className="w-full flex items-center justify-center gap-2 bg-card border border-bd-lines hover:bg-main py-2.5 md:py-3 rounded-xl font-bold text-tx-secondary transition-all shadow-sm text-sm"
  >
- <svg className="w-5 h-5" viewBox="0 0 24 24">
+ <svg className="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24">
  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -234,7 +220,7 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
       setLoading(false);
     }
   }}
- className="w-full mt-3 flex items-center justify-center gap-3 bg-transparent border border-bd-lines hover:bg-main py-3 rounded-xl font-bold text-tx-secondary transition-all"
+ className="w-full flex items-center justify-center gap-2 bg-transparent border border-bd-lines hover:bg-main py-2.5 md:py-3 rounded-xl font-bold text-tx-secondary transition-all text-sm"
  >
  <span>Entrar como Invitado (Demo)</span>
  </button>
@@ -242,25 +228,25 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  </div>
 
  {/* Links */}
- <div className="flex flex-col items-center gap-4 mt-8 pt-6 border-t border-bd-lines">
+ <div className="flex flex-col md:flex-row items-center justify-between gap-3 mt-4 md:mt-8 pt-4 md:pt-6 border-t border-bd-lines">
  <button 
  type="button" 
  onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
- className="text-sm font-bold text-accent hover:text-[#15803d] transition-colors flex items-center gap-2"
+ className="text-[11px] md:text-sm font-bold text-accent hover:text-[#15803d] transition-colors flex items-center gap-1.5"
  >
- <UserPlus className="w-4 h-4" />
- {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : 'Crear nueva cuenta'}
+ <UserPlus className="w-3.5 h-3.5" />
+ {isRegistering ? '¿Ya tienes cuenta? Ingresa' : 'Crear nueva cuenta'}
  </button>
- <button type="button" className="text-sm font-medium text-tx-secondary hover:text-tx-primary transition-colors flex items-center gap-2">
- <HelpCircle className="w-4 h-4" />
+ <button type="button" className="text-[11px] md:text-sm font-medium text-tx-secondary hover:text-tx-primary transition-colors flex items-center gap-1.5">
+ <HelpCircle className="w-3.5 h-3.5" />
  Contactar a soporte
  </button>
  </div>
  </div>
 
  {/* Footer */}
- <div className="mt-8 text-center relative z-10">
- <p className="text-sm text-tx-secondary font-medium bg-card/50 backdrop-blur-sm px-4 py-1.5 rounded-full inline-block shadow-sm">
+ <div className="mt-4 md:mt-8 text-center relative z-10">
+ <p className="text-[10px] md:text-sm text-tx-secondary font-medium bg-card/50 backdrop-blur-sm px-3 md:px-4 py-1 md:py-1.5 rounded-full inline-block shadow-sm">
  © {new Date().getFullYear()} Argent Software. Todos los derechos reservados.
  </p>
  </div>

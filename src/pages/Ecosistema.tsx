@@ -1,54 +1,10 @@
 import React, { useState } from 'react';
-import { Network, MessageSquare, ThumbsUp, Share2, TrendingUp, BarChart3, Search, Filter, MapPin, Award, Zap, PieChart, Package, AlertTriangle } from 'lucide-react';
+import { Network, MessageSquare, ThumbsUp, Share2, TrendingUp, BarChart3, Search, Filter, MapPin, Award, Zap, PieChart, Package, AlertTriangle, BookOpen, UserPlus, X, Link } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
-
-// Datos de prueba simulando la interacción de la comunidad
-const communityFeed = [
-  {
-    id: 1,
-    user: "Martín Gómez",
-    role: "Instalador Senior",
-    avatar: "https://i.pravatar.cc/150?u=martin",
-    location: "Pilar, Buenos Aires",
-    time: "Hace 2 horas",
-    title: "Automatización de 5000m2 finalizada",
-    content: "Excelente rendimiento de las electroválvulas de 2'' instaladas en paralelo. La presión se mantuvo constante a 3.5 bares durante todo el ciclo de prueba. ¿Alguien más notó una mejora de caudal en este último lote?",
-    tags: ["Rainbird", "Electroválvulas", "Alta Presión", "Automatización"],
-    likes: 24,
-    comments: 5,
-    image: "https://images.unsplash.com/photo-1599540066928-11bedeb34a9b?auto=format&fit=crop&q=80&w=800"
-  },
-  {
-    id: 2,
-    user: "Laura Fernández",
-    role: "Paisajista",
-    avatar: "https://i.pravatar.cc/150?u=laura",
-    location: "Nordelta, Tigre",
-    time: "Hace 5 horas",
-    title: "Duda técnica sobre aspersores emergentes",
-    content: "En terrenos con mucho desnivel, ¿qué marca de toberas con ajuste de arco están prefiriendo para evitar el charqueo rápido? Estoy entre dos marcas principales y me gustaría saber el desgaste a 2 años.",
-    tags: ["Toberas", "Desnivel", "Mantenimiento"],
-    likes: 8,
-    comments: 12,
-  },
-  {
-    id: 3,
-    user: "TecnoRiego SRL",
-    role: "Distribuidor",
-    avatar: "https://i.pravatar.cc/150?u=tecnoriego",
-    location: "Rosario, Santa Fe",
-    time: "Ayer",
-    title: "Cambio de tuberías de PEAD a PVC en lote agrícola",
-    content: "Terminamos de migrar 2km de red primaria. Usamos uniones termofusionadas en lugar de roscadas y el tiempo de instalación bajó un 40%.",
-    tags: ["PVC", "Termofusión", "Instalación Rápida", "Obra Mayor"],
-    likes: 45,
-    comments: 18,
-    image: "https://images.unsplash.com/photo-1574697960100-3027bca50190?auto=format&fit=crop&q=80&w=800"
-  }
-];
+import { Modal } from '../components/Modal';
 
 // Datos ficticios para el dashboard del Stakeholder (Data Mining)
 const stakeholderStats = {
@@ -85,14 +41,36 @@ export default function Ecosistema() {
 
   const { data: trabajosRaw } = useFirestoreCollection<any>('trabajos_portfolio');
   const { data: anotacionesRaw } = useFirestoreCollection<any>('trabajos_anotaciones');
+  
+  // Novedad: Directorio de Profesionales
+  const { data: directorioData, add: addDirectorio } = useFirestoreCollection<any>('directorio_profesionales');
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [newDirectorio, setNewDirectorio] = useState({ nombre: '', especialidad: 'Sistemas de Riego', zona: '', telefono: '', redSocial: '', descripcion: '' });
+
+  const handleRegisterDirectorio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDirectorio.nombre || !newDirectorio.telefono) return;
+    
+    // Auto-formateo del número de teléfono (quitar espacios, obligar +549 si es vacío, etc)
+    let formatTelf = newDirectorio.telefono.replace(/\s+/g, '');
+    if (!formatTelf.startsWith('+') && !formatTelf.startsWith('549')) {
+      if (formatTelf.startsWith('11') || formatTelf.startsWith('15')) {
+        formatTelf = '549' + formatTelf;
+      }
+    }
+
+    await addDirectorio({ ...newDirectorio, telefono: formatTelf, createdAt: new Date().toISOString() });
+    setIsRegisterModalOpen(false);
+    setNewDirectorio({ nombre: '', especialidad: 'Sistemas de Riego', zona: '', telefono: '', redSocial: '', descripcion: '' });
+  };
 
   // Procesamiento en tiempo real de Marcas y Categorías extraidas de Trabajos Completados
   const brandCounts: Record<string, number> = {};
   const categoryCounts: Record<string, number> = {};
   let totalMarcas = 0;
 
-  trabajosRaw.forEach(trabajo => {
-    if (trabajo.estado === 'Completado' && trabajo.gastosDetalle) {
+  (trabajosRaw || []).forEach(trabajo => {
+    if (trabajo.estado === 'Completado' && Array.isArray(trabajo.gastosDetalle)) {
       trabajo.gastosDetalle.forEach((gasto: any) => {
         // Conteos de Marcas
         if (gasto.marca && gasto.marca !== '' && gasto.marca !== 'Otra' && gasto.marca !== 'Personal') {
@@ -109,7 +87,7 @@ export default function Ecosistema() {
 
   // Procesamiento de El Cementerio (Fallas)
   const fallasCounts: Record<string, number> = {};
-  anotacionesRaw.forEach(anotacion => {
+  (anotacionesRaw || []).forEach(anotacion => {
     if (anotacion.categoria === 'Recambio / Falla') {
       const match = anotacion.titulo?.match(/\[Rotura\/Falla\]\s(.*?)\s-\s(.*)/);
       if (match && match[2]) {
@@ -196,138 +174,135 @@ export default function Ecosistema() {
       </div>
 
       {activeTab === 'comunidad' ? (
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Feed Principal */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Caja de Nueva Publicación */}
-            <div className="bg-card rounded-2xl p-5 border border-bd-lines shadow-sm flex flex-col gap-4">
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center shrink-0 border border-accent/30 text-accent font-bold">
-                  TU
-                </div>
-                <div className="flex-1">
-                  <textarea 
-                    placeholder="¿Qué material o técnica estás usando en tu obra de hoy?" 
-                    className="w-full bg-main border border-bd-lines rounded-xl p-3 text-tx-primary focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none h-20"
-                  ></textarea>
-                </div>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-bd-lines">
-                <div className="flex gap-2">
-                  <button className="text-tx-secondary hover:text-accent p-2 rounded-lg hover:bg-main transition-colors text-sm font-semibold flex items-center gap-2">
-                    <MapPin size={16} /> Etiquetar Obra
-                  </button>
-                  <button className="text-tx-secondary hover:text-accent p-2 rounded-lg hover:bg-main transition-colors text-sm font-semibold flex items-center gap-2">
-                    <Package size={16} /> Etiquetar Producto
-                  </button>
-                </div>
-                <button className="bg-accent text-white px-5 py-2 rounded-xl font-bold hover:bg-[#15803d] shadow-sm transform hover:scale-105 transition-all">
-                  Publicar
-                </button>
-              </div>
+        <div className="space-y-6 animate-fade-in">
+          {/* Banner Puente Oficial */}
+          <div className="bg-gradient-to-r from-[#25D366] to-[#128C7E] rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between shadow-lg relative overflow-hidden group">
+            <div className="absolute -right-10 -top-10 opacity-20 transform group-hover:scale-110 transition-transform duration-700">
+               <MessageSquare size={220} />
             </div>
+            <div className="relative z-10 mb-6 md:mb-0 max-w-2xl">
+               <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Tu Comunidad Oficial en WhatsApp</h2>
+               <p className="text-emerald-50 text-base md:text-lg font-medium leading-relaxed">
+                 Únete al grupo cerrado de instaladores, paisajistas y técnicos de Argent Software. Conversa sin intermediarios.
+               </p>
+            </div>
+            <a href="https://chat.whatsapp.com/JHQjB8xPzBDEpC8RkT5cQe" target="_blank" rel="noopener noreferrer" className="relative z-10 w-full md:w-auto text-center bg-white text-[#128C7E] px-8 py-4 rounded-2xl font-black text-lg hover:bg-slate-100 hover:scale-105 transition-all shadow-[0_10px_30px_rgba(0,0,0,0.2)] flex items-center justify-center gap-2">
+              <MessageSquare size={22} /> Unirme al Grupo Libre
+            </a>
+          </div>
 
-            {/* Muro de Publicaciones */}
-            <div className="space-y-6">
-              {communityFeed.map((post) => (
-                <div key={post.id} className="bg-card rounded-2xl border border-bd-lines shadow-sm overflow-hidden group">
-                  <div className="p-5">
-                    {/* Cabecera del Post */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <img src={post.avatar} alt={post.user} className="w-12 h-12 rounded-full border border-bd-lines" />
-                        <div>
-                          <h4 className="font-bold text-tx-primary leading-tight">{post.user}</h4>
-                          <span className="text-xs text-tx-secondary flex items-center gap-1 mt-0.5">
-                            {post.role} • <MapPin size={10} /> {post.location}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-xs text-tx-secondary font-medium">{post.time}</span>
+          <div className="h-px w-full bg-bd-lines my-8"></div>
+
+          {/* Directorio de Especialistas */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-2xl font-black text-tx-primary flex items-center gap-3">
+                <BookOpen className="text-accent size-7" /> Directorio de Profesionales
+              </h3>
+              <p className="text-tx-secondary mt-1 text-sm">Encuentra y contacta subcontratistas directamente, sin comisiones.</p>
+            </div>
+            <button onClick={() => setIsRegisterModalOpen(true)} className="flex items-center gap-2 bg-accent text-white hover:bg-emerald-600 font-bold px-5 py-3 rounded-xl transition-all shadow-sm w-full md:w-auto justify-center">
+              <UserPlus size={18} /> Ofrecer mis Servicios
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {directorioData.map(prof => (
+               <div key={prof.id} className="bg-card border border-bd-lines rounded-3xl p-6 shadow-sm hover:border-accent hover:shadow-md transition-all group flex flex-col h-full">
+                  <div className="flex items-center gap-4 mb-5">
+                     <div className="size-16 rounded-full bg-gradient-to-br from-accent to-[#128C7E] p-[2px]">
+                       <div className="w-full h-full bg-card rounded-full flex items-center justify-center text-tx-primary text-xl font-black uppercase">
+                         {prof.nombre.substring(0,2)}
+                       </div>
+                     </div>
+                     <div>
+                       <h4 className="font-bold text-tx-primary text-[1.1rem] leading-tight group-hover:text-accent transition-colors">{prof.nombre}</h4>
+                       <p className="text-sm font-bold text-accent/80 uppercase tracking-wider text-[10px] mt-1">{prof.especialidad}</p>
+                     </div>
+                  </div>
+                  
+                  {prof.descripcion && (
+                    <div className="mb-5 bg-main p-3 rounded-xl border border-bd-lines h-20 overflow-hidden">
+                      <p className="text-xs text-tx-secondary leading-relaxed line-clamp-3 italic">"{prof.descripcion}"</p>
                     </div>
+                  )}
 
-                    {/* Contenido */}
-                    <h3 className="text-lg font-bold text-tx-primary mb-2">{post.title}</h3>
-                    <p className="text-tx-secondary text-sm leading-relaxed mb-4">{post.content}</p>
-
-                    {/* Tags (Minería invisible de datos) */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {post.tags.map((tag) => (
-                        <span key={tag} className="bg-accent/10 border border-accent/20 text-accent text-xs font-bold px-2.5 py-1 rounded-md cursor-pointer hover:bg-accent hover:text-white transition-colors">
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Media si existe */}
-                    {post.image && (
-                      <div className="mb-4 rounded-xl overflow-hidden max-h-[300px] border border-bd-lines">
-                        <img src={post.image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                      </div>
+                  <div className="mb-auto space-y-3 pb-6 border-b border-bd-lines/50">
+                    <p className="text-sm text-tx-secondary flex items-start gap-3">
+                       <MapPin size={16} className="shrink-0 text-tx-primary/50 mt-0.5" /> 
+                       <span className="text-tx-primary font-medium">{prof.zona}</span>
+                    </p>
+                    {prof.redSocial && (
+                      <a href={prof.redSocial.startsWith('http') ? prof.redSocial : `https://${prof.redSocial}`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:text-emerald-500 font-medium flex items-center gap-3 w-fit">
+                         <Link size={16} className="shrink-0 mt-0.5" /> 
+                         <span className="truncate max-w-[200px]">{prof.redSocial.replace(/^https?:\/\//, '')}</span>
+                      </a>
                     )}
-
-                    {/* Interacciones */}
-                    <div className="flex items-center gap-6 pt-4 border-t border-bd-lines">
-                      <button className="flex items-center gap-2 text-tx-secondary hover:text-blue-500 font-semibold text-sm transition-colors">
-                        <ThumbsUp size={18} /> {post.likes}
-                      </button>
-                      <button className="flex items-center gap-2 text-tx-secondary hover:text-accent font-semibold text-sm transition-colors">
-                        <MessageSquare size={18} /> {post.comments} Respuestas
-                      </button>
-                      <button className="flex items-center gap-2 text-tx-secondary hover:text-white font-semibold text-sm transition-colors ml-auto">
-                        <Share2 size={18} />
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                  
+                  <div className="mt-6">
+                    <a href={`https://wa.me/${prof.telefono}?text=Hola ${prof.nombre}, te ubiqué a través del Directorio Oficial de Argent Software. Te contacto porque necesito...`} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-2 bg-[#25D366]/10 text-[#25D366] py-3.5 rounded-xl font-bold hover:bg-[#25D366]/20 transition-all border border-[#25D366]/20 hover:scale-[1.02]">
+                       <MessageSquare size={20} /> Escribir por WhatsApp
+                    </a>
+                  </div>
+               </div>
+             ))}
+             {directorioData.length === 0 && (
+               <div className="col-span-full py-16 text-center text-tx-secondary bg-card rounded-3xl border border-bd-lines border-dashed">
+                 <div className="w-20 h-20 bg-main rounded-full flex items-center justify-center mx-auto mb-4 border border-bd-lines">
+                    <UserPlus size={32} className="text-accent opacity-50" />
+                 </div>
+                 <h3 className="text-lg font-bold text-tx-primary mb-1">Directorio en Cero</h3>
+                 <p className="max-w-md mx-auto">Sé el primer profesional en destacar tu trabajo. Completa el registro y recibe contactos directamente a tu celular.</p>
+               </div>
+             )}
           </div>
 
-          {/* Sidebar Derecho - Tendencias PÚBLICAS (Motivan a participar) */}
-          <div className="space-y-6">
-            <div className="bg-card rounded-2xl p-5 border border-bd-lines shadow-sm">
-              <h3 className="text-tx-primary font-bold flex items-center gap-2 mb-4">
-                <TrendingUp className="text-accent size-5" /> Tendencias en el Campo
-              </h3>
-              <div className="space-y-4">
-                {stakeholderStats.trendingTopics.map((topic, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-main border border-bd-lines cursor-pointer hover:border-accent transition-colors">
-                    <div>
-                      <p className="font-bold text-sm text-tx-primary flex items-center gap-2">
-                        <span className="text-tx-secondary font-black">#{i+1}</span> {topic.topic}
-                      </p>
-                      <span className="text-xs text-tx-secondary">{topic.mentions} menciones esta semana</span>
-                    </div>
-                    <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-1 rounded-full">{topic.growth}</span>
+          <Modal isOpen={isRegisterModalOpen} onClose={() => setIsRegisterModalOpen(false)} title="Ofrecer Mis Servicios">
+            <form onSubmit={handleRegisterDirectorio} className="space-y-4">
+               <div>
+                  <label className="block text-sm font-semibold text-tx-primary mb-1">Tu Nombre Completo / Empresa</label>
+                  <input type="text" required value={newDirectorio.nombre} onChange={e => setNewDirectorio({...newDirectorio, nombre: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: Juan Pérez Instalaciones" />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-tx-primary mb-1">Especialidad Principal</label>
+                    <select value={newDirectorio.especialidad} onChange={e => setNewDirectorio({...newDirectorio, especialidad: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary">
+                      <option>Sistemas de Riego</option>
+                      <option>Paisajismo & Parquización</option>
+                      <option>Reparación de Bombas</option>
+                      <option>Zanjeo y Movimiento</option>
+                      <option>Programación Automática</option>
+                      <option>Electricidad General</option>
+                      <option>Mantenimiento General</option>
+                    </select>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-card rounded-2xl p-5 border border-bd-lines shadow-sm">
-              <h3 className="text-tx-primary font-bold flex items-center gap-2 mb-2">
-                <Award className="text-yellow-500 size-5" /> Top Profesionales
-              </h3>
-              <p className="text-xs text-tx-secondary mb-4 leading-relaxed">
-                Nuestros instaladores y agrónomos que más soluciones comparten con la comunidad.
-              </p>
-              <div className="space-y-3">
-                {['Diego H.', 'Ing. Agrónoma Clara', 'Piscinas & Riegos Sur'].map((name, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="size-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-xs font-bold text-white">
-                      {i+1}
-                    </div>
-                    <span className="text-sm font-medium text-tx-primary">{name}</span>
+                  <div>
+                    <label className="block text-sm font-semibold text-tx-primary mb-1">Nº WhatsApp (Móvil)</label>
+                    <input type="tel" required value={newDirectorio.telefono} onChange={e => setNewDirectorio({...newDirectorio, telefono: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: 1145328990" />
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
+               </div>
+               <div>
+                  <label className="block text-sm font-semibold text-tx-primary mb-1">Zona Principal de Cobertura</label>
+                  <input type="text" required value={newDirectorio.zona} onChange={e => setNewDirectorio({...newDirectorio, zona: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: Zona Norte, Pilar, Tigre..." />
+               </div>
+               <div>
+                  <label className="block text-sm font-semibold text-tx-primary mb-1">URL de Red Social / Portfolio (Opcional)</label>
+                  <input type="url" value={newDirectorio.redSocial} onChange={e => setNewDirectorio({...newDirectorio, redSocial: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: https://instagram.com/tu_perfil" />
+               </div>
+               <div>
+                  <label className="block text-sm font-semibold text-tx-primary mb-1">Breve Descripción (Tus fortalezas)</label>
+                  <textarea maxLength={150} rows={2} value={newDirectorio.descripcion} onChange={e => setNewDirectorio({...newDirectorio, descripcion: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary resize-none" placeholder="15 años en el rubro, matrícula en GBA, experto en válvulas Hunter..."></textarea>
+               </div>
+               <button type="submit" className="w-full bg-accent text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-colors shadow-sm mt-2">
+                 Publicar en el Directorio
+               </button>
+            </form>
+          </Modal>
         </div>
       ) : (
-        /* VISTA PRIVADA DEL DUEÑO: DATA MINING PARA STAKEHOLDERS */
         <div className="space-y-6 animate-fade-in">
+          {/* VISTA PRIVADA DEL DUEÑO: DATA MINING PARA STAKEHOLDERS */}
           <div className="bg-gradient-to-r from-[#1a3a2a] to-[#0f2419] rounded-2xl p-6 border border-emerald-500/20 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-10">
               <PieChart size={150} />

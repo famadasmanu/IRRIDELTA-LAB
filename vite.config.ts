@@ -16,15 +16,24 @@ export default defineConfig(({ mode }) => {
           maximumFileSizeToCacheInBytes: 5242880 // 5 MB
         },
         manifest: {
-          name: 'IRRIDELTA ERP',
-          short_name: 'Irridelta',
-          description: 'Gestión de proyectos y clientes de IRRIDELTA',
-          theme_color: '#3A5F4B',
+          name: 'Argent Software',
+          short_name: 'Argent',
+          description: 'Software de Gestión - Argent Software',
+          theme_color: '#1E2A28',
+          background_color: '#1E2A28',
+          display: 'standalone',
           icons: [
             {
-              src: 'favicon.ico',
-              sizes: '64x64 32x32 24x24 16x16',
-              type: 'image/x-icon'
+              src: 'bw-logo.jpg',
+              sizes: '192x192',
+              type: 'image/jpeg',
+              purpose: 'any maskable'
+            },
+            {
+              src: 'bw-logo.jpg',
+              sizes: '512x512',
+              type: 'image/jpeg',
+              purpose: 'any maskable'
             }
           ]
         }

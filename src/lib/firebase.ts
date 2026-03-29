@@ -25,6 +25,16 @@ export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+import { enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
+
+enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+        console.warn('Firebase Offline Persistence warning: Multi-tab is not supported.');
+    } else if (err.code === 'unimplemented') {
+        console.warn('Firebase Offline Persistence warning: Browser does not support persistence.');
+    }
+});
+
 // Authentication Helpers
 export const signInWithGoogle = async () => {
     try {

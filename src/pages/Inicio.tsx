@@ -32,40 +32,24 @@ import {
  Briefcase,
  Activity,
  Truck,
- TrendingUp
+ TrendingUp,
+ Plus,
+ ImagePlus,
+ Trash2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useLocalConfig } from '../hooks/useLocalConfig';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
 import { format, parseISO } from 'date-fns';
-import { auth } from '../lib/firebase';
+import { auth, storage } from '../lib/firebase';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import imageCompression from 'browser-image-compression';
 import { es } from 'date-fns/locale';
 import { Modal } from '../components/Modal';
 import { irrideltaNews } from '../lib/newsData';
 
-const partnerNews = [
- {
- id: 1,
- partnerId: 'todo-riego',
- partnerName: 'Todo Riego',
- title: 'Nueva línea de aspersores de bajo consumo',
- description: 'Descubre la nueva tecnología que permite ahorrar hasta un 30% de agua en sistemas residenciales.',
- date: '2023-10-25',
- image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCAigqe4mWkrN51yhHvph9BjfT9LcGWM46Mm51MDxPuLMM64X95dKlvP3JR2VhwTSVFDPUoluj6hXadTyFfoH4uYWqV1QbPYpPb5vMxUF8ekETjcdDqy-ZM-tkPs9AsO2FEXmp4VEu6Xkc8e_va7-d9qWrjrpj6x76mGwXAztdenBnssAfbYAq1FjfjBKTdTS9hNybvYpCaGuxKlVRs6-hSE0JU3cUpi8w0y0JYWUfby00Cw04wx0_n3TumEf2QaBuZIv1_r_UCrok',
- link: '/partner/todo-riego'
- },
- {
- id: 2,
- partnerId: 'munditol',
- partnerName: 'Munditol',
- title: 'Lanzamiento: Motosierras a batería STIHL',
- description: 'Potencia profesional sin emisiones. Conoce la nueva gama de herramientas a batería para paisajismo.',
- date: '2023-10-28',
- image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCdtNY0QqOgqKWSC5qOnKQoaH8fn13fZMhlB3PlmPRxoGEUQ_m9z7dXrBU_IcXavc2c8gEgyWhgtsVyoisocscIW7ACBNhphUY_VrT3ACWYYET5zC1rFvyaBSbbtGWATSaebFO47JJVNyGcQKWczEjVRCd2kbXgSBqtWuXXY1Hsuwl_fa2ICfUT5JQu3-8iUY_S5qG9SKsgHsfQ-64wWojyJnLb5qkEQdDyDidjczLqfg_rLVDscqe_CgiOuVGaqYBzMcF8FYQS8pE',
- link: '/partner/munditol'
- }
-];
+
 
 export default function Inicio() {
  const navigate = useNavigate();
@@ -112,6 +96,51 @@ export default function Inicio() {
       return 'admin';
     }
   });
+  const isAdmin = userRole === 'admin' || userRole === 'invitado' || userRole === 'desarrollador';
+
+  // State for Editable Partner News
+  const { data: partnerNews, add: addPartnerNews, remove: removePartnerNews } = useFirestoreCollection<any>('partner_news');
+  const [isAddPartnerNewsOpen, setIsAddPartnerNewsOpen] = useState(false);
+  const [newPartnerNews, setNewPartnerNews] = useState({ partnerName: '', title: '', description: '', link: '', date: format(new Date(), 'yyyy-MM-dd') });
+  const [partnerNewsImage, setPartnerNewsImage] = useState<string | null>(null);
+  const [isUploadingNews, setIsUploadingNews] = useState(false);
+
+  const handlePartnerImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      try {
+        const options = { maxSizeMB: 0.2, maxWidthOrHeight: 1200, useWebWorker: true, initialQuality: 0.8 };
+        const compressedFile = await imageCompression(file, options);
+        const reader = new FileReader();
+        reader.onloadend = () => setPartnerNewsImage(reader.result as string);
+        reader.readAsDataURL(compressedFile);
+      } catch (err) {
+        console.error("Error al comprimir:", err);
+      }
+    }
+  };
+
+  const handleAddPartnerNews = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPartnerNews.title || !newPartnerNews.link || !partnerNewsImage) return;
+    setIsUploadingNews(true);
+    try {
+      let finalImageUrl = partnerNewsImage;
+      if (partnerNewsImage.startsWith('data:image')) {
+        const imageRef = ref(storage, `partner_news/${Date.now()}_${Math.random().toString(36).substring(7)}`);
+        await uploadString(imageRef, partnerNewsImage, 'data_url');
+        finalImageUrl = await getDownloadURL(imageRef);
+      }
+      await addPartnerNews({ ...newPartnerNews, image: finalImageUrl, createdAt: new Date().toISOString() });
+      setIsAddPartnerNewsOpen(false);
+      setNewPartnerNews({ partnerName: '', title: '', description: '', link: '', date: format(new Date(), 'yyyy-MM-dd') });
+      setPartnerNewsImage(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUploadingNews(false);
+    }
+  };
 
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   const [isCalendarLoading, setIsCalendarLoading] = useState(false);
@@ -592,6 +621,14 @@ export default function Inicio() {
         <div className="flex items-center gap-3">
           <Handshake className="size-6 text-accent" />
           <h2 className="text-tx-primary text-xl font-bold tracking-tight">Novedades de Socios</h2>
+          {isAdmin && (
+            <button
+               onClick={() => setIsAddPartnerNewsOpen(true)}
+               className="ml-2 flex items-center gap-1 bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-accent hover:text-white transition-colors"
+            >
+               <Plus size={16} /> Añadir
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -615,7 +652,7 @@ export default function Inicio() {
           className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-4 hide-scrollbar"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {partnerNews.map((news) => (
+          {partnerNews.map((news: any) => (
             <div
               key={news.id}
               className="min-w-[100%] md:min-w-[calc(50%-12px)] lg:min-w-[calc(33.333%-16px)] snap-start shrink-0 relative rounded-xl overflow-hidden group shadow-md border border-bd-lines flex flex-col"
@@ -632,6 +669,14 @@ export default function Inicio() {
                     {news.partnerName}
                   </span>
                 </div>
+                {isAdmin && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removePartnerNews(news.id); }}
+                    className="absolute top-4 right-4 bg-red-500/80 backdrop-blur-sm text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-sm"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
               <div className="p-5 flex flex-col flex-1 bg-card">
                 <div className="flex items-center justify-between mb-2">
@@ -646,7 +691,7 @@ export default function Inicio() {
                   {news.description}
                 </p>
                 <button
-                  onClick={() => navigate(news.link)}
+                  onClick={() => news.link.startsWith('http') ? window.open(news.link, '_blank') : navigate(news.link)}
                   className="w-full bg-main text-tx-primary py-2.5 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
                 >
                   Ver novedad
@@ -768,6 +813,45 @@ export default function Inicio() {
  </div>
  )}
  </Modal>
+
+  {/* Modal - Añadir Novedad de Socio */}
+  <Modal isOpen={isAddPartnerNewsOpen} onClose={() => setIsAddPartnerNewsOpen(false)} title="Cargar Novedad de Socio">
+    <form onSubmit={handleAddPartnerNews} className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-tx-primary mb-1">Nombre del Socio / Entidad</label>
+        <input type="text" required value={newPartnerNews.partnerName} onChange={e => setNewPartnerNews({...newPartnerNews, partnerName: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: Todo Riego, Pampa Riego..." />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-tx-primary mb-1">Título de Novedad</label>
+        <input type="text" required value={newPartnerNews.title} onChange={e => setNewPartnerNews({...newPartnerNews, title: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: Nueva línea de Bombas sumergibles" />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-tx-primary mb-1">Descripción corta</label>
+        <textarea required maxLength={150} rows={2} value={newPartnerNews.description} onChange={e => setNewPartnerNews({...newPartnerNews, description: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary resize-none" placeholder="Ingresa un breve copete..."></textarea>
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-tx-primary mb-1">Enlace de Destino (Link)</label>
+        <input type="url" required value={newPartnerNews.link} onChange={e => setNewPartnerNews({...newPartnerNews, link: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="https://instagram.com/..." />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-tx-primary mb-1">Imagen de Portada</label>
+        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-bd-lines border-dashed rounded-xl cursor-pointer hover:bg-main transition-colors overflow-hidden group">
+          {partnerNewsImage ? (
+            <img src={partnerNewsImage} alt="Preview" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-tx-secondary">
+              <ImagePlus className="size-8 mb-2 opacity-50" />
+              <p className="text-sm font-medium">Click para subir foto</p>
+            </div>
+          )}
+          <input type="file" className="hidden" accept="image/jpeg, image/png, image/webp" onChange={handlePartnerImageChange} />
+        </label>
+      </div>
+      <button type="submit" disabled={isUploadingNews} className="w-full bg-accent text-white font-bold py-3.5 rounded-xl hover:bg-[#15803d] transition-colors flex items-center justify-center gap-2 mt-2">
+        {isUploadingNews ? <Loader2 className="animate-spin size-5" /> : 'Publicar Novedad'}
+      </button>
+    </form>
+  </Modal>
 
  {/* Toast Notification */}
  {showToast && (

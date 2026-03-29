@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, logout } from './lib/firebase';
+import { auth, logout, db } from './lib/firebase';
 import Layout from './components/Layout';
 import Inicio from './pages/Inicio';
 import Trabajos from './pages/Trabajos';
@@ -21,14 +21,33 @@ import Ecosistema from './pages/Ecosistema';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        // Sync role securely from database
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+             window.localStorage.setItem('user_role', JSON.stringify(userSnap.data().role));
+          } else {
+             const isGod = ['famadasmanuela@gmail.com', 'famadasmanu@gmail.com', 'leandrofamadas15@gmail.com'].includes(currentUser.email?.toLowerCase() || '');
+             const defaultRole = isGod ? 'admin' : 'operario';
+             await setDoc(userRef, { email: currentUser.email, role: defaultRole, createdAt: new Date().toISOString() });
+             window.localStorage.setItem('user_role', JSON.stringify(defaultRole));
+          }
+        } catch (e) {
+          console.error('Error auto-syncing role:', e);
+        }
+      }
       setLoading(false);
     });
     return () => unsubscribe();

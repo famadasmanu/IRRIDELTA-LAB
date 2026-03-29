@@ -12,7 +12,7 @@ import { PresupuestoFormalModal } from '../components/PresupuestoFormalModal';
 import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { jsPDF } from 'jspdf';
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyDTrhgjJJBKfB8vG5RmuyymqY3pnORX-xI";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyDTrhgjJJBKfB8vG5RmuyymqY3pnORX-xI";
 
 function MapController({ clients, selectedClient }: { clients: any[], selectedClient?: any }) {
   const map = useMap();

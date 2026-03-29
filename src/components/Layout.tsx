@@ -137,9 +137,9 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
                 to={item.path}
                 onClick={closeMobileMenu}
                 className={cn(
-                  "flex items-center justify-between px-3 py-3 rounded-lg transition-colors min-h-[44px]",
+                  "flex items-center justify-between px-3 py-3 rounded-lg transition-all min-h-[44px]",
                   isActive
-                    ? "bg-[#2F7D6B] dark:bg-white text-white dark:text-[#3A5F4B] shadow-sm font-medium"
+                    ? "bg-gradient-to-br from-[#10b981] to-[#059669] shadow-[0_0_15px_rgba(16,185,129,0.4)] text-white font-medium border border-[#10b981]/50"
                     : "text-white/80 hover:bg-[#1E2A28] hover:text-white dark:text-white dark:hover:bg-[#2d4a3a]"
                 )}
               >
@@ -150,7 +150,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
                 {item.badge && (
                   <span className={cn(
                     "text-xs font-bold px-2 py-0.5 rounded-full",
-                    isActive ? "bg-[#2F7D6B] dark:bg-[#3A5F4B] text-white" : "bg-red-500 text-white"
+                    isActive ? "bg-white/20 text-white" : "bg-red-500 text-white"
                   )}>
                     {item.badge}
                   </span>
@@ -178,48 +178,29 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto pb-20 md:pb-0">
-        <div className={location.pathname.includes('/herramientas') ? 'w-full h-full p-2 md:p-4' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}>
-          <Outlet />
-        </div>
-      </main>
+      {/* Main Container wrapping Header and Content */}
+      <div className="flex-1 flex flex-col min-w-0 h-[100dvh]">
+        {/* Mobile Top Header */}
+        <header className="md:hidden sticky top-0 left-0 right-0 bg-[#1E2A28] dark:bg-slate-900 border-b border-white/10 z-30 flex items-center justify-between px-4 py-3 shadow-md w-full shrink-0">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsMobileOpen(true)} className="p-1 -ml-1 text-white/80 hover:text-white transition-colors">
+              <Menu size={24} />
+            </button>
+            <span className="font-bold text-lg text-white truncate">
+              Argent Software
+            </span>
+          </div>
+        </header>
 
-      {/* Bottom Navigation for Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-40 flex justify-around items-center px-2 py-2 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-        {filteredMenuItems.slice(0, 4).map((item) => {
-          const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "flex flex-col items-center justify-center p-2 rounded-xl transition-colors min-w-[64px]",
-                isActive ? "text-[#2F7D6B] dark:text-[#3A5F4B]" : "text-[#6B7280] dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
-              )}
-            >
-              <div className="relative flex items-center justify-center">
-                <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-                {item.badge && (
-                  <span className="absolute -top-1.5 -right-2.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border border-white dark:border-slate-900">
-                    {item.badge > 9 ? '9+' : item.badge}
-                  </span>
-                )}
-              </div>
-              <span className={cn("text-[10px] mt-1 font-medium truncate max-w-full", isActive && "font-bold")}>
-                {item.label === 'Trabajos' ? 'Obras' : item.label.split(' ')[0]}
-              </span>
-            </NavLink>
-          );
-        })}
-        <button
-          onClick={() => setIsMobileOpen(true)}
-          className="flex flex-col items-center justify-center p-2 rounded-xl transition-colors min-w-[64px] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-        >
-          <Menu size={22} strokeWidth={2} />
-          <span className="text-[10px] mt-1 font-medium">Más</span>
-        </button>
-      </nav>
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className={location.pathname.includes('/herramientas') ? 'w-full h-full p-2 md:p-4' : 'p-4 md:p-8 max-w-7xl mx-auto w-full'}>
+            <Outlet />
+          </div>
+        </main>
+      </div>
+
+
     </div>
   );
 }

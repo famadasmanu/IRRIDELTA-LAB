@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Share2, ZoomIn, Maximize, Minimize, Smartphone, Info, ShoppingCart, Map as MapIcon, Package, User, Square, Layers, Ruler, FolderOpen, Eye, BarChart2, Settings, Home, Activity, CheckCircle, Upload, Trash2, MapPin, Sun, Droplets, Navigation, Check, SplitSquareHorizontal, Download, Sparkles, AlertTriangle, Merge, Plus, Camera, Save, Image as ImageIcon, FileText, BookOpen, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { storage, auth, db } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -9,6 +12,7 @@ export default function Calculadora() {
  const navigate = useNavigate();
  const [activeTab, setActiveTab] = useState('calculadora');
  const [projectName, setProjectName] = useState('Proyecto de Riego #402');
+
  const [projectFile, setProjectFile] = useState<string | null>(null);
  const [isDrawingMode, setIsDrawingMode] = useState(false);
  const [nodes, setNodes] = useState<{ x: number, y: number, pipeSize?: string, isStart?: boolean, isEnd?: boolean }[]>([]);
@@ -28,8 +32,6 @@ export default function Calculadora() {
  const [zonasGuardadas, setZonasGuardadas] = useState<any[]>([]);
 
  // Factores Ambientales
- const [sustrato, setSustrato] = useState('Franco');
- const [soleamiento, setSoleamiento] = useState('Medio');
  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [desnivel, setDesnivel] = useState('0');
   const [accesoriosValvulas, setAccesoriosValvulas] = useState('1');
@@ -43,7 +45,9 @@ export default function Calculadora() {
  const [showCalibrationModal, setShowCalibrationModal] = useState(false);
  const scaleFactor = pixelsPerMeter ? (1 / pixelsPerMeter) : 0.1;
 
- const [resultados, setResultados] = useState<{ perdida: string, velocidad: string, caudalTotal: string, diametro: string, recomendacion?: string } | null>(null);
+ const [resultados, setResultados] = useState<{ perdida: string, velocidad: string, caudalTotal: string, diametro: string } | null>(null);
+ const [isSavingPDF, setIsSavingPDF] = useState(false);
+ const [draftLoaded, setDraftLoaded] = useState(false);
  const [totalDistance, setTotalDistance] = useState(0);
  const [showOriginalLayer, setShowOriginalLayer] = useState(true);
  const [showDrawingLayer, setShowDrawingLayer] = useState(true);
@@ -59,15 +63,52 @@ export default function Calculadora() {
  const clientesData = clientesRaw;
  const [selectedClientId, setSelectedClientId] = useState('');
 
+ // --- AUTOGUARDADO / BORRADOR EN FIREBASE ---
+ useEffect(() => {
+    const loadDraft = async () => {
+        if (!auth.currentUser) return;
+        try {
+            const draftRef = doc(db, 'calculadora_drafts', auth.currentUser.uid);
+            const docSnap = await getDoc(draftRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.projectName) setProjectName(data.projectName);
+                if (data.caudal) setCaudal(data.caudal);
+                if (data.totalDistance) setTotalDistance(data.totalDistance);
+                if (data.material) setMaterial(data.material);
+                if (data.currentPipeSize) setCurrentPipeSize(data.currentPipeSize);
+                if (data.zonasGuardadas) setZonasGuardadas(data.zonasGuardadas);
+                if (data.resultados) setResultados(data.resultados);
+                // Si agregás más campos, hidratalos acá
+            }
+        } catch (error) {
+            console.error("Error loading draft", error);
+        } finally {
+            setDraftLoaded(true);
+        }
+    };
+    loadDraft();
+ }, []);
+
+ useEffect(() => {
+    if (!draftLoaded || !auth.currentUser) return;
+    const saveTimer = setTimeout(() => {
+        const draftRef = doc(db, 'calculadora_drafts', auth.currentUser!.uid);
+        setDoc(draftRef, {
+            projectName, caudal, totalDistance, material, currentPipeSize, zonasGuardadas, resultados, lastUpdated: Date.now()
+        }, { merge: true }).catch(e => console.error("Error autosaving", e));
+    }, 2000); // 2 segundos de debounce para no bombardear
+    return () => clearTimeout(saveTimer);
+ }, [projectName, caudal, totalDistance, material, currentPipeSize, zonasGuardadas, resultados, draftLoaded]);
+ // --------------------------------------------
+
  // Estados de IA Copilot
  const [copilotoActivo, setCopilotoActivo] = useState(true);
  const [autoTelescopico, setAutoTelescopico] = useState(false);
  const [iaAlerts, setIaAlerts] = useState<{ id: number, type: 'warning'|'error'|'info'|'success', message: string }[]>([]);
  const [procesandoPlano, setProcesandoPlano] = useState(false);
 
- // Vistas del Visualizador
- const [isFullscreen, setIsFullscreen] = useState(false);
- const [isMobileView, setIsMobileView] = useState(false);
+
 
  const agregarAlertaIa = (type: 'warning'|'error'|'info'|'success', message: string) => {
  setIaAlerts(prev => {
@@ -81,12 +122,10 @@ export default function Calculadora() {
  navigator.geolocation.getCurrentPosition(
  (position) => {
  setIsGettingLocation(false);
- setSoleamiento('Alto'); // Simulación para la demo
  if (copilotoActivo) {
- setSustrato('Franco');
- agregarAlertaIa('success', 'Satélite: ET0=5.2mm/día detectado. Sustrato Franco asignado y Soleamiento Alto.');
+ agregarAlertaIa('success', 'Ubicación detectada.');
  } else {
- alert('Ubicación obtenida. Soleamiento estimado en esta latitud: Alto.');
+ alert('Ubicación obtenida.');
  }
  },
  (error) => {
@@ -167,7 +206,6 @@ export default function Calculadora() {
  material,
  perdida: resultados.perdida,
  velocidad: resultados.velocidad,
- recomendacion: resultados.recomendacion,
  nodes: nodes.length
  };
 
@@ -341,103 +379,54 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  let perdidaTotal = 0;
  let newAlerts: {type: 'warning'|'error'|'info'|'success', message: string}[] = [];
  
- let calcNodes = [...nodes];
- if (copilotoActivo && autoTelescopico && nodes.length > 2) {
- const diams = ['63mm', '50mm', '40mm', '32mm', '25mm', '20mm'];
- let startIdx = diams.indexOf(currentPipeSize);
- if (startIdx === -1) startIdx = 3;
- calcNodes = nodes.map((node, i) => {
- if (i === 0) return { ...node, pipeSize: diams[startIdx] };
- const sizeReduction = Math.floor(i / 2); // se reduce cada 2 nodos
- const newIdx = Math.min(startIdx + sizeReduction, diams.length - 1);
- return { ...node, pipeSize: diams[newIdx] };
- });
- 
- let changed = false;
- for(let j=0; j<nodes.length; j++) {
- if(nodes[j].pipeSize !== calcNodes[j].pipeSize) changed = true;
- }
- 
- if (changed) {
- setNodes(calcNodes);
- newAlerts.push({ type: 'success', message: 'Telescópico Inteligente: Diámetros adaptados gradualmente para ahorrar PVC y evitar purgado deficiente.'});
- }
- }
+  // Variables paramétricas
+  const diamStr = currentPipeSize;
+  const diam_mm = parseFloat(diamStr.replace('mm', ''));
+  const diam_m = diam_mm / 1000;
+  
+  let C = 150; // PVC
+  if (material.includes('Polietileno')) C = 140;
 
- if (calcNodes.length > 1) {
- let maxV = 0;
- let minV = 100;
+  // Hazen-Williams para la pérdida de carga contínua con la distancia total reportada
+  const hf_mwc = 10.67 * totalDistance * Math.pow(Q_m3s / C, 1.852) / Math.pow(diam_m, 4.87);
+  let hf_bar = hf_mwc / 10.197;
 
- for (let i = 1; i < calcNodes.length; i++) {
- const prevNode = calcNodes[i - 1];
- const currNode = calcNodes[i];
- const dx = currNode.x - prevNode.x;
- const dy = currNode.y - prevNode.y;
- const lengthMeters = Math.sqrt(dx * dx + dy * dy) * scaleFactor;
+  // Pérdidas localizadas (estimación estándar)
+  const numCodos = parseInt(accesoriosCodos as string) || 0;
+  const numValvulas = parseInt(accesoriosValvulas as string) || 0;
+  hf_bar += (numValvulas * 0.05) + (numCodos * 0.02);
 
- const diamString = currNode.pipeSize || '32mm';
- const D_mm = parseFloat(diamString.replace('mm', ''));
- const D_m = D_mm / 1000;
+  perdidaTotal = hf_bar;
+  const velocity = (4 * Q_m3s) / (Math.PI * Math.pow(diam_m, 2));
 
- let C = 150; // PVC
- if (material.includes('Polietileno')) C = 140;
+  // Reglas del Copiloto (Siempre activas para validación base)
+  if (velocity > 2.0) {
+   newAlerts.push({ type: 'error', message: `¡Ruptura por Golpe de Ariete! Velocidad del tramo principal es ${velocity.toFixed(2)} m/s (súperando los 2.0 m/s críticos). Cambie a un tubo mayor.`});
+  } else if (velocity > 1.5) {
+   newAlerts.push({ type: 'warning', message: `Reduciendo vida útil: Velocidad límite de ${velocity.toFixed(2)} m/s alcanzada. Recomendable ensanchar tubería.`});
+  }
+  
+  if (velocity < 0.6) {
+   newAlerts.push({ type: 'info', message: `Velocidad baja en tubería (${velocity.toFixed(2)} m/s). Riesgo leve de sedimentación si el agua acarrea sólidos.`});
+  }
+  
+  if (perdidaTotal > 2.5) {
+   newAlerts.push({ type: 'error', message: `Diseño Inviable: Pérdida total de ${perdidaTotal.toFixed(2)} bar. Los emisores finales no tendrán presión de trabajo adecuada.`});
+  }
 
- const hf_mwc = 10.67 * lengthMeters * Math.pow(Q_m3s / C, 1.852) / Math.pow(D_m, 4.87);
- const hf_bar = hf_mwc / 10.197;
- perdidaTotal += hf_bar;
-
- const v = (4 * Q_m3s) / (Math.PI * Math.pow(D_m, 2));
- if (v > maxV) maxV = v;
- if (v < minV) minV = v;
- }
-
- if (copilotoActivo) {
- if (maxV > 2.0) {
- newAlerts.push({ type: 'error', message: `¡Ruptura por Golpe de Ariete! Velocidad máxima en algún tramo es de ${maxV.toFixed(2)} m/s (súperando los 2.0 m/s críticos). Por favor, cambie la Montante a un diámetro mayor.`});
- } else if (maxV > 1.5) {
- newAlerts.push({ type: 'warning', message: `Reduciendo vida útil: Velocidad límite de ${maxV.toFixed(2)} m/s alcanzada. Inspeccione la clase del tubo para asegurar aguante hidráulico.`});
- }
- 
- if (minV < 0.6 && !autoTelescopico) {
- newAlerts.push({ type: 'info', message: `Velocidades remanentes bajas (${minV.toFixed(2)} m/s). Riesgo enorme de sedimentación. Activa el dimensionado telescópico.`});
- }
- 
- if (perdidaTotal > 2.5) {
- newAlerts.push({ type: 'error', message: `Diseño Inviable: Pérdida total sumada de ${perdidaTotal.toFixed(2)} bar. Los emisores finales en la serie no tendrán presión basal de trabajo.`});
- }
- }
- } else {
- perdidaTotal = (Q * 0.05 * (totalDistance / 10)); // Fallback
- }
-
- if (newAlerts.length > 0) {
- setIaAlerts(prev => {
- let updated = [...newAlerts.map(a => ({...a, id: Date.now() + Math.random()})), ...prev];
- updated = updated.filter((v,i,a)=>a.findIndex(v2=>(v2.message===v.message))===i);
- return updated.slice(0, 3);
- });
- }
-
- const diamString = calcNodes.length > 0 ? (calcNodes[0].pipeSize || currentPipeSize) : currentPipeSize;
- const D_mm = parseFloat(diamString.replace('mm', ''));
- const velocity = (4 * Q_m3s) / (Math.PI * Math.pow(D_mm / 1000, 2));
-
- let sugerencia = '';
- if (sustrato === 'Arenoso') {
- sugerencia = 'Agronomía IA: Por altísima infiltración y baja retención (V.I >= 50 mm/h), programe ciclos muy cortos (3-5 min) reiterados para no perder lámina por percolación extrema.';
- } else if (sustrato === 'Arcilloso') {
- sugerencia = 'Agronomía IA: Riegue en pulsos espaciados. La infiltración basal del lote es paupérrima (V.I <= 3 mm/h). Si concentra riego sin pausa generará un encharcamiento e hipoxia radicular nociva.';
- } else {
- sugerencia = 'Agronomía IA: Lote Franco ideal. Riegos espaciados moderados y sin encharcamiento estimado para lograr un humedecimiento a 15-20cm radicular.';
- }
- if (soleamiento === 'Alto' || soleamiento === 'Muy Alto') sugerencia += ' NOTA: ET de la zona requerirá +30% de aportes en temporada Estival, asegure sobredimensionar la bomba para caudal max diario.';
+  if (newAlerts.length > 0) {
+  setIaAlerts(prev => {
+  let updated = [...newAlerts.map(a => ({...a, id: Date.now() + Math.random()})), ...prev];
+  updated = updated.filter((v,i,a)=>a.findIndex(v2=>(v2.message===v.message))===i);
+  return updated.slice(0, 3);
+  });
+  }
 
  setResultados({
  perdida: `${perdidaTotal.toFixed(3)} bar`,
  velocidad: `${velocity.toFixed(2)} m/s`,
  caudalTotal: `${Q_m3h.toFixed(2)} m³/h`,
- diametro: currentPipeSize,
- recomendacion: sugerencia
+ diametro: currentPipeSize
  });
  };
 
@@ -564,181 +553,19 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  </div>
  </header>
 
- <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
- {/* Left Column (Main Focus): PDF Viewer & Map */}
- <div className={`lg:col-span-8 order-1 flex flex-col gap-6 w-full ${isFullscreen ? 'z-[100]' : ''}`}>
- {/* Main Visualizer */}
- <div className={
- isFullscreen ? 'fixed inset-0 z-[100] bg-slate-200 flex flex-col h-screen w-screen transition-all duration-300' :
- isMobileView ? 'bg-card shadow-2xl border-[12px] border-slate-800 rounded-[2.5rem] mx-auto w-full max-w-[375px] h-[812px] overflow-hidden flex flex-col relative transition-all duration-500' :
- 'glass-card rounded-2xl shadow-sm border border-bd-lines overflow-hidden flex flex-col h-[450px] lg:h-[700px] relative transition-all duration-500'
- }>
- {/* Toolbar */}
- <div className="flex items-center justify-between p-3 border-b border-bd-lines bg-slate-800/20 backdrop-blur-md">
- <div className="flex items-center gap-2">
- <button
- onClick={() => document.getElementById('pdf-upload')?.click()}
- className="flex items-center gap-2 bg-card border border-bd-lines text-tx-secondary px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-slate-800/20 backdrop-blur-md transition-colors shadow-sm"
- >
- <Upload size={16} />
- Subir Plano/PDF
- </button>
- <input
- id="pdf-upload"
- type="file"
- accept="application/pdf,image/*"
- className="hidden"
- onChange={handleFileUpload}
- />
- </div>
- <div className="flex items-center gap-2">
- {/* Mini IA Toggle in Toolbar for cleaner UI */}
- <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 mr-4">
- <Sparkles size={14} className="text-indigo-600" />
- <span className="text-xs font-bold text-indigo-900">Copiloto IA</span>
- <label className="flex items-center cursor-pointer ml-1">
- <div className="relative">
- <input type="checkbox" className="sr-only" checked={copilotoActivo} onChange={() => setCopilotoActivo(!copilotoActivo)} />
- <div className={`block w-7 h-4 rounded-full transition-colors ${copilotoActivo ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
- <div className={`dot absolute left-[2px] top-[2px] bg-card w-3 h-3 rounded-full transition-transform ${copilotoActivo ? 'transform translate-x-3' : ''}`}></div>
- </div>
- </label>
- </div>
- <button 
- onClick={() => { setIsMobileView(!isMobileView); setIsFullscreen(false); }}
- className={`p-1.5 rounded-lg transition-colors ${isMobileView ? 'bg-accent text-white' : 'text-tx-secondary hover:bg-card hover:text-accent'}`}
- title="Vista Simulación Móvil"
- >
- <Smartphone size={18} />
- </button>
- <button 
- onClick={() => { setIsFullscreen(!isFullscreen); setIsMobileView(false); }}
- className={`p-1.5 rounded-lg transition-colors ${isFullscreen ? 'bg-accent text-white' : 'text-tx-secondary hover:bg-card hover:text-accent'}`}
- title={isFullscreen ? "Salir de Pantalla Completa" : "Pantalla Completa"}
- >
- {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
- </button>
- </div>
- </div>
-
- {/* Viewer Area */}
- <div className="flex-1 bg-slate-200 relative overflow-hidden group" ref={containerRef}>
- {showCalibrationModal && (
- <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-card p-4 rounded-xl shadow-2xl border border-bd-lines flex flex-col items-center gap-3 animate-in fade-in slide-in-from-top-4">
- <h4 className="font-bold text-tx-primary text-sm">Distancia de los dos puntos marcados:</h4>
- <div className="flex gap-2 items-center">
- <input
- type="number"
- value={calibrationDistanceInput}
- onChange={(e) => setCalibrationDistanceInput(e.target.value)}
- placeholder="Ej. 10.5"
- className="w-24 h-9 px-3 border border-bd-lines rounded-lg outline-none focus:border-accent text-center font-bold text-accent"
- autoFocus
- />
- <span className="text-tx-secondary font-bold">m</span>
- </div>
- <div className="flex gap-2 w-full mt-1">
- <button onClick={() => { setShowCalibrationModal(false); setCalibrationNodes([]); }} className="flex-1 bg-slate-800/20 backdrop-blur-md text-tx-secondary font-bold py-2 rounded-lg hover:bg-slate-200 text-xs transition-colors">Cancelar</button>
- <button onClick={confirmarCalibracion} className="flex-1 bg-accent text-white font-bold py-2 rounded-lg hover:bg-[#15803d] text-xs transition-colors flex justify-center items-center gap-1"><Check size={14} /> Aplicar</button>
- </div>
- </div>
- )}
- <div className="absolute inset-0 flex items-center justify-center">
- {showOriginalLayer && (
- projectFile ? (
- projectFile.startsWith('data:application/pdf') ? (
- <embed src={projectFile} type="application/pdf" className="w-full h-full pointer-events-none" />
- ) : (
- <div className="w-full h-full bg-contain bg-center bg-no-repeat pointer-events-none" style={{ backgroundImage: `url('${projectFile}')` }}></div>
- )
- ) : (
- <div className="w-full h-full bg-cover bg-center opacity-90 pointer-events-none" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDQXLVZgcvUmvYtvAADhqAZOdzy8wdrkDLnPoG44zl1lXoMXwu_GNX2i3FOrVaCmVOuX0xbKH5btV1HWefgk2YTu1JEtIKB76_Yv3OIfOXOaA5YymdqIMvgRyNdrgNNCcR_temvJ_2AUbRHuYopy4yoXd7MqIO5X6K0I-OvuW3KMAOYOli49LlfNfrQC-chdgznvVqAIXnp_CZ9Il0cUPjpsm5F6lMqxEQjKT6KTBo3V833PBmZQCeGF2IK9z-Go7Lxr5opBZmaxaA')" }}></div>
- )
- )}
-
- <canvas
- ref={canvasRef}
- onClick={handleCanvasClick}
- className={`absolute inset-0 z-10 ${isDrawingMode ? 'cursor-crosshair' : 'cursor-default'}`}
- />
-
- {(!projectFile || !projectFile.startsWith('data:application/pdf')) && !isDrawingMode && nodes.length === 0 && (
- <div className="absolute inset-0 bg-accent/5 pointer-events-none"></div>
- )}
- </div>
-
- {/* Floating Tools */}
- <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
- <button
- onClick={() => {
- setIsCalibrating(!isCalibrating);
- setIsDrawingMode(false);
- if (!isCalibrating) {
- setCalibrationNodes([]);
- alert('Haga click en dos puntos del plano actual para definir una medida real conocida. (Se trazará una línea punteada y luego le preguntaremos la distancia)');
- }
- }}
- className={`p-2 rounded-xl shadow-lg transition-colors ${isCalibrating ? 'bg-[#F27D26] text-white animate-pulse' : 'bg-accent text-white hover:bg-[#15803d]'}`}
- title={isCalibrating ? "Cancelando calibración..." : "Calibrar escala geométrica de este plano"}
- >
- <Navigation size={20} />
- </button>
- <button
- onClick={() => { setIsDrawingMode(!isDrawingMode); setIsCalibrating(false); }}
- className={`p-2 rounded-xl shadow-lg transition-colors ${isDrawingMode ? 'bg-[#F27D26] text-white' : 'bg-accent text-white hover:bg-[#15803d]'}`}
- title={isDrawingMode ? "Desactivar dibujo de nodos" : "Dibujar nodos de tubería"}
- >
- <Ruler size={20} />
- </button>
- <button
- onClick={() => setShowOriginalLayer(!showOriginalLayer)}
- className={`p-2 rounded-xl shadow-sm border transition-colors ${showOriginalLayer ? 'bg-card/90 text-accent border-bd-lines' : 'bg-slate-200 text-tx-secondary border-bd-lines'}`}
- title="Alternar capa original (Plano)"
- >
- <Eye size={20} />
- </button>
- <button
- onClick={() => setShowDrawingLayer(!showDrawingLayer)}
- className={`p-2 rounded-xl shadow-sm border transition-colors ${showDrawingLayer ? 'bg-card/90 text-accent border-bd-lines' : 'bg-slate-200 text-tx-secondary border-bd-lines'}`}
- title="Alternar capa de dibujo (Nodos)"
- >
- <Layers size={20} />
- </button>
- {nodes.length > 0 && (
- <button
- onClick={() => { setNodes([]); setTotalDistance(0); }}
- className="bg-card/90 text-red-500 p-2 rounded-xl shadow-sm border border-bd-lines hover:bg-red-50 transition-colors"
- title="Borrar nodos"
- >
- <Trash2 size={20} />
- </button>
- )}
- </div>
-
- {/* Smart Alerts IA Layer (Only shows if copiloto is ON and there are alerts) */}
- {copilotoActivo && iaAlerts.length > 0 && (
- <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 max-w-sm pointer-events-none">
- {iaAlerts.map(al => (
- <div key={al.id} className={`flex items-start gap-2 p-3 rounded-xl text-xs font-semibold shadow-2xl pointer-events-auto border animate-in fade-in slide-in-from-left-4 ${al.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : al.type === 'warning' ? 'bg-orange-50 text-orange-800 border-orange-200' : al.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-card/90 backdrop-blur text-indigo-800 border-indigo-200'}`}>
- {al.type === 'error' ? <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" /> : al.type === 'success' ? <CheckCircle size={16} className="mt-0.5 flex-shrink-0" /> : <Info size={16} className="mt-0.5 flex-shrink-0" />}
- <span className="leading-tight">{al.message}</span>
- </div>
- ))}
- </div>
- )}
- </div>
- </div>
- </div>
-
+ <div className="max-w-4xl mx-auto flex flex-col gap-10 w-full pb-16">
  {/* Right Column (Controls): Zone Builder & Parameters */}
- <div className="lg:col-span-4 lg:row-span-2 order-2 flex flex-col gap-6 w-full">
+ <div className="flex flex-col gap-8 w-full">
 
  {/* Constructor de Zonas Card */}
- <div className="glass-card rounded-[1.5rem] p-6 shadow-sm border border-bd-lines mb-6 relative overflow-hidden">
- <h3 className="text-lg font-bold text-tx-primary mb-1 flex items-center gap-2">
- <Droplets className="text-accent" size={20} />
- Constructor de Zonas de Riego
- </h3>
+ <div className="glass-card rounded-[1.5rem] p-6 md:p-8 shadow-sm border border-bd-lines relative overflow-hidden">
+    <div className="absolute top-0 left-0 w-1.5 h-full bg-[#F27D26]"></div>
+    <div className="flex items-center gap-3 mb-3">
+       <span className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-[#F27D26] text-white font-black text-sm shadow-sm opacity-90">1</span>
+       <h3 className="text-xl md:text-2xl font-black text-tx-primary flex items-center gap-2">
+           Constructor de Zonas
+       </h3>
+    </div>
  <p className="text-xs text-tx-secondary mb-5 font-medium leading-relaxed">Configurá las zonas agrupando emisores precisos de Hunter o Rain Bird, especificando ángulos y modelos.</p>
 
  {/* Crear Zona Activa */}
@@ -790,8 +617,8 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  }} className="w-full h-9 px-2 rounded-lg border border-bd-lines bg-card text-xs font-bold text-tx-secondary outline-none hover:border-accent">
  {emitterBrand === 'Hunter' ? (
  <>
- <option>Rotor PGP-ADJ (Hunter via Todo Riego (Distribuye: Argent Software))</option>
- <option>Rotor PGP-Ultra (Hunter via Todo Riego (Distribuye: Argent Software))</option>
+ <option>Rotor PGP-ADJ</option>
+ <option>Rotor PGP-Ultra</option>
  <option>Rotor I-20</option>
  <option>Rotor PGJ</option>
  <option>MP Rotator (Boquilla)</option>
@@ -802,7 +629,7 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  <option>Rotor 5004</option>
  <option>Rotor 3504</option>
  <option>Rotor 8005</option>
- <option>Boquilla R-VAN (Rain Bird via Munditol (Distribuye: Argent Software))</option>
+ <option>Boquilla R-VAN</option>
  <option>Boquilla HE-VAN / 1800</option>
  </>
  )}
@@ -883,7 +710,32 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  <ul className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
  {currentEmitters.map(em => (
  <li key={em.id} className="flex justify-between items-center bg-card border border-bd-lines p-2 rounded-lg text-xs shadow-sm">
- <span className="font-bold text-tx-secondary">{em.count}x {em.model} <span className="text-[#F27D26] font-black">{em.subType}</span> ({em.angle}°)</span>
+ <div className="flex items-center gap-2">
+  <div className="flex items-center bg-slate-800/20 rounded-md border border-bd-lines overflow-hidden h-6">
+    <button onClick={() => {
+        setCurrentEmitters(currentEmitters.map(e => {
+            if (e.id === em.id && e.count > 1) {
+                const newCount = e.count - 1;
+                const singleLpm = e.lpm / e.count;
+                return { ...e, count: newCount, lpm: singleLpm * newCount };
+            }
+            return e;
+        }));
+    }} className="px-2 hover:bg-slate-300 font-black text-tx-secondary transition-colors">-</button>
+    <span className="px-2 font-bold text-xs bg-card h-full flex items-center">{em.count}</span>
+    <button onClick={() => {
+        setCurrentEmitters(currentEmitters.map(e => {
+            if (e.id === em.id) {
+                const newCount = e.count + 1;
+                const singleLpm = e.lpm / e.count;
+                return { ...e, count: newCount, lpm: singleLpm * newCount };
+            }
+            return e;
+        }));
+    }} className="px-2 hover:bg-slate-300 font-black text-tx-secondary transition-colors">+</button>
+  </div>
+  <span className="font-bold text-tx-secondary text-[11px]">{em.model} <span className="text-[#F27D26] font-black">{em.subType}</span> ({em.angle}°)</span>
+</div>
  <div className="flex items-center gap-3">
  <span className="text-accent font-bold">{em.lpm.toFixed(1)} L/M</span>
  <button onClick={() => setCurrentEmitters(currentEmitters.filter(e => e.id !== em.id))} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
@@ -926,8 +778,16 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  <div className="w-10 h-10 bg-slate-800/20 backdrop-blur-md rounded-lg border border-bd-lines flex items-center justify-center text-tx-secondary"><ImageIcon size={18} /></div>
  )}
  <div>
- <h5 className="font-bold text-sm text-tx-primary">{zona.name}</h5>
- <span className="text-[10px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md">{zona.emitters.length} tipos de emisores</span>
+ <input 
+ type="text"
+ value={zona.name}
+ onChange={(e) => {
+ const newName = e.target.value;
+ setZonasGuardadas(zonasGuardadas.map(z => z.id === zona.id ? { ...z, name: newName } : z));
+ }}
+ className="font-bold text-sm text-tx-primary bg-transparent border-b border-transparent hover:border-bd-lines focus:border-accent outline-none w-full max-w-[150px] transition-colors"
+ />
+ <span className="text-[10px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded-md block mt-1 w-fit">{zona.emitters.length} tipos de emisores</span>
  </div>
  </div>
  <div className="flex items-center gap-2">
@@ -945,9 +805,46 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  <div className="p-3">
  <div className="flex flex-wrap gap-1.5 mb-2">
  {zona.emitters.map((e:any, i:number) => (
- <span key={i} className="text-[10px] bg-card border border-bd-lines px-2 py-1 rounded-md text-tx-secondary font-medium whitespace-nowrap shadow-sm">
- {e.count}x {e.model} <span className="text-[#F27D26] font-bold">{e.subType}</span> ({e.angle}°)
- </span>
+ <div key={i} className="text-[10px] bg-card border border-bd-lines px-2 py-1 rounded-md text-tx-secondary font-medium whitespace-nowrap shadow-sm">
+ <div className="flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
+    <button onClick={(ev) => {
+        ev.stopPropagation();
+        setZonasGuardadas(zonasGuardadas.map(z => {
+            if (z.id === zona.id) {
+                const newEmitters = z.emitters.map((emIter:any) => {
+                    if (emIter.id === e.id && emIter.count > 1) {
+                        const nc = emIter.count - 1;
+                        return { ...emIter, count: nc, lpm: (emIter.lpm / emIter.count) * nc };
+                    }
+                    return emIter;
+                });
+                const newTotal = newEmitters.reduce((acc:number, curr:any) => acc + curr.lpm, 0);
+                return { ...z, emitters: newEmitters, totalLpm: newTotal };
+            }
+            return z;
+        }));
+    }} className="h-4 w-4 flex items-center justify-center bg-card border border-bd-lines rounded-sm hover:border-accent text-[10px] font-black pointer-events-auto">-</button>
+    <span className="font-black text-xs min-w-[12px] text-center">{e.count}x</span>
+    <button onClick={(ev) => {
+        ev.stopPropagation();
+        setZonasGuardadas(zonasGuardadas.map(z => {
+            if (z.id === zona.id) {
+                const newEmitters = z.emitters.map((emIter:any) => {
+                    if (emIter.id === e.id) {
+                        const nc = emIter.count + 1;
+                        return { ...emIter, count: nc, lpm: (emIter.lpm / emIter.count) * nc };
+                    }
+                    return emIter;
+                });
+                const newTotal = newEmitters.reduce((acc:number, curr:any) => acc + curr.lpm, 0);
+                return { ...z, emitters: newEmitters, totalLpm: newTotal };
+            }
+            return z;
+        }));
+    }} className="h-4 w-4 flex items-center justify-center bg-card border border-bd-lines rounded-sm hover:border-accent text-[10px] font-black pointer-events-auto mr-1">+</button>
+    {e.model} <span className="text-[#F27D26] font-bold">{e.subType}</span> ({e.angle}°)
+</div>
+</div>
  ))}
  </div>
  <div className="flex justify-between items-center text-xs mt-2 border-t border-bd-lines/50 pt-2">
@@ -962,13 +859,15 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  </div>
 
  {/* Calculator Card */}
- <div className="glass-card rounded-2xl p-6 shadow-sm border border-bd-lines">
- <h3 className="text-lg font-bold text-tx-primary mb-4 flex items-center gap-2">
- <Settings className="text-accent" size={20} />
- Parámetros
- </h3>
-
- <div className="space-y-4">
+ <div className="glass-card rounded-[1.5rem] p-6 md:p-8 shadow-sm border border-bd-lines relative overflow-hidden">
+    <div className="absolute top-0 left-0 w-1.5 h-full bg-accent"></div>
+    <div className="flex items-center gap-3 mb-8">
+       <span className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-accent text-white font-black text-sm shadow-sm opacity-90">2</span>
+       <h3 className="text-xl md:text-2xl font-black text-tx-primary flex items-center gap-2">
+           Parámetros Hidráulicos
+       </h3>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
  <div className="flex flex-col gap-1.5">
  <label className="text-sm font-semibold text-tx-secondary">Caudal (L/min)</label>
  <div className="relative">
@@ -983,14 +882,14 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  </div>
  </div>
  <div className="flex flex-col gap-1.5">
- <label className="text-sm font-semibold text-tx-secondary">Distancia Total Calculada (Metros)</label>
+ <label className="text-sm font-semibold text-tx-secondary">Distancia Total del Tramo principal (Metros)</label>
  <div className="relative">
  <input
  className="w-full h-12 px-4 rounded-xl border border-bd-lines glass focus:bg-card/10 text-tx-primary focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all"
  placeholder="0"
  type="number"
- value={totalDistance > 0 ? totalDistance.toFixed(1) : ''}
- readOnly
+ value={totalDistance || ''}
+ onChange={(e) => setTotalDistance(parseFloat(e.target.value) || 0)}
  />
  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-tx-secondary text-xs font-bold">M</span>
  </div>
@@ -1002,10 +901,10 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  onChange={(e) => setMaterial(e.target.value)}
  className="w-full h-12 px-4 rounded-xl border border-bd-lines glass focus:bg-card/10 text-tx-primary focus:border-accent focus:ring-2 focus:ring-accent/20 outline-none transition-all appearance-none"
  >
- <option>PVC Clase 10 (Imp. Todo Riego (Distribuye: Argent Software))</option>
- <option>PVC Clase 6 (Imp. Todo Riego (Distribuye: Argent Software))</option>
- <option>Polietileno K4 (Imp. Munditol (Distribuye: Argent Software))</option>
- <option>Polietileno K6 (Imp. Munditol (Distribuye: Argent Software))</option>
+ <option>PVC Clase 10</option>
+ <option>PVC Clase 6</option>
+ <option>Polietileno K4</option>
+ <option>Polietileno K6</option>
  </select>
  </div>
  <div className="flex flex-col gap-1.5">
@@ -1023,41 +922,9 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  <option value="63mm">63mm (2")</option>
  </select>
  </div>
-
- <div className="grid grid-cols-2 gap-3 pt-2">
- <div className="flex flex-col gap-1.5">
- <label className="text-sm font-semibold text-tx-secondary flex items-center gap-1"><Droplets size={14} className="text-accent" />Sustrato</label>
- <select
- value={sustrato}
- onChange={(e) => setSustrato(e.target.value)}
- className="w-full h-10 px-3 rounded-xl border border-bd-lines glass focus:bg-card/10 text-tx-primary focus:border-accent text-sm outline-none transition-all appearance-none"
- >
- <option>Arenoso</option>
- <option>Franco</option>
- <option>Arcilloso</option>
- </select>
- </div>
- <div className="flex flex-col gap-1.5">
- <label className="text-sm font-semibold text-tx-secondary flex items-center gap-1">
- <Sun size={14} className="text-[#F27D26]" />Soleamiento
- <button onClick={handleGetLocation} className="ml-auto text-tx-secondary hover:text-accent" title="Auto-detectar con GPS" disabled={isGettingLocation}>
- <MapPin size={14} className={isGettingLocation ? 'animate-pulse' : ''} />
- </button>
- </label>
- <select
- value={soleamiento}
- onChange={(e) => setSoleamiento(e.target.value)}
- className="w-full h-10 px-3 rounded-xl border border-bd-lines glass focus:bg-card/10 text-tx-primary focus:border-accent text-sm outline-none transition-all appearance-none"
- >
- <option>Alto</option>
- <option>Medio</option>
- <option>Bajo</option>
- </select>
- </div>
- </div>
  </div>
 
-  <div className="pt-2 mt-4 border-t border-bd-lines border-dashed space-y-4">
+ <div className="pt-6 mt-6 border-t border-bd-lines border-dashed space-y-5">
     <h4 className="text-sm font-bold text-tx-primary mb-2 flex items-center gap-2">
       <Layers size={16} className="text-[#F27D26]" /> Variables Avanzadas
     </h4>
@@ -1097,12 +964,12 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
   </div>
 
  <button
- onClick={handleCalcular}
- className="w-full mt-6 bg-accent text-white font-bold py-3.5 rounded-xl shadow-sm hover:bg-[#15803d] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
- >
- <Activity size={18} />
- Calcular Requerimientos
- </button>
+    onClick={handleCalcular}
+    className="w-full mt-10 bg-gradient-to-r from-accent to-[#15803d] text-white font-black text-lg md:text-xl py-5 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-3 tracking-wide"
+    >
+    <Activity size={24} />
+    EJECUTAR CÁLCULO HIDRÁULICO
+    </button>
  </div>
 
  {/* Analysis Card */}
@@ -1130,15 +997,6 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  <p className="text-accent text-xl font-bold">{resultados ? resultados.diametro : '-'}</p>
  </div>
  </div>
-
- {resultados?.recomendacion && (
- <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl">
- <p className="text-sm text-blue-800 flex items-start gap-2">
- <Info size={16} className="mt-0.5 flex-shrink-0" />
- <span>{resultados.recomendacion}</span>
- </p>
- </div>
- )}
 
  {resultados && (
  <div className="mt-6 pt-4 border-t border-bd-lines">
@@ -1194,13 +1052,16 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  </div>
 
  {/* Assistants / Non-prioritized content moved below Viewer (Bottom Left Margin filled) */}
- <div className="lg:col-span-8 order-3 grid grid-cols-1 md:grid-cols-2 gap-6 opacity-95 hover:opacity-100 transition-opacity w-full">
+ <div className="flex flex-col gap-8 w-full">
  {/* Analysis Card */}
- <div className="glass-card rounded-2xl p-6 shadow-sm border border-bd-lines">
- <div className="flex items-center gap-2 mb-4">
- <BarChart2 className="text-accent" size={20} />
- <h3 className="text-lg font-bold text-tx-primary">Métricas Finales</h3>
- </div>
+ <div id="metricas-finales" className="glass-card rounded-[1.5rem] p-6 md:p-8 shadow-sm border border-bd-lines relative overflow-hidden mt-2">
+    <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+    <div className="flex items-center gap-3 mb-8">
+       <span className="flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-indigo-500 text-white font-black text-sm shadow-sm opacity-90">3</span>
+       <h3 className="text-xl md:text-2xl font-black text-tx-primary flex items-center gap-2">
+           Métricas y Análisis
+       </h3>
+    </div>
 
  <div className="grid grid-cols-2 gap-3 mb-6">
  <div className="bg-slate-800/20 backdrop-blur-md rounded-xl p-3 border border-bd-lines">
@@ -1221,21 +1082,11 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  </div>
  </div>
 
- {resultados?.recomendacion && (
- <div className="mb-6 p-3 bg-blue-50 border border-blue-100 rounded-xl">
- <p className="text-sm text-blue-800 flex items-start gap-2">
- <Info size={16} className="mt-0.5 flex-shrink-0" />
- <span>{resultados.recomendacion}</span>
- </p>
- </div>
- )}
-
  {resultados && (
  <div className="pt-4 border-t border-bd-lines">
- <h4 className="text-sm font-bold text-tx-primary mb-3 flex items-center gap-2">
- <User size={16} className="text-accent" />
- Acciones de Exportación
- </h4>
+ <h4 className="text-base font-bold text-tx-primary mb-4 flex items-center gap-2">
+       <User size={20} className="text-indigo-500" /> Acciones de Exportación
+    </h4>
  <div className="flex flex-col gap-3">
  <select
  value={selectedClientId}
@@ -1267,51 +1118,6 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  </div>
 
  
-        {/* Engineering/Technical Resources Card */}
-        <div className="glass-card rounded-2xl p-6 shadow-sm flex flex-col items-start justify-center text-left border border-bd-lines relative overflow-hidden group mb-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-accent/5 group-hover:from-blue-500/10 group-hover:to-accent/10 transition-colors z-0" />
-          
-          <div className="flex items-center gap-2 mb-2 relative z-10 w-full border-b border-bd-lines pb-3">
-            <FileText className="text-accent" size={20} />
-            <h3 className="text-lg font-bold text-tx-primary">Fichas Técnicas Oficiales</h3>
-          </div>
-          
-          <p className="text-xs text-tx-secondary mb-5 relative z-10 leading-relaxed max-w-sm">
-            Accede a las curvas de rendimiento, manuales de instalación y tablas de fricción provistas directamente por los fabricantes.
-          </p>
-
-          <div className="w-full flex flex-col gap-2.5 relative z-10">
-            <button 
-              onClick={() => alert("Descargando Curvas de Rendimiento Todo Riego (PDF)...")}
-              className="w-full bg-slate-800/20 backdrop-blur-md border border-bd-lines font-medium py-3 px-4 justify-between rounded-xl hover:border-accent/50 hover:shadow-md transition-all flex items-center text-xs shadow-sm text-tx-primary group/btn">
-              <div className="flex flex-col items-start">
-                <span className="font-bold text-tx-primary text-left text-[13px] group-hover/btn:text-accent transition-colors">Curvas de Riego y Bombeo</span>
-                <span className="text-[10px] text-tx-secondary uppercase tracking-widest mt-1 font-semibold flex items-center gap-1"><BookOpen size={10} /> Documento Oficial: Todo Riego</span>
-              </div>
-              <Download size={16} className="text-tx-secondary group-hover/btn:text-accent transition-colors" />
-            </button>
-            
-            <button 
-              onClick={() => alert("Descargando Tablas de Fricción K4/K6 (PDF)...")}
-              className="w-full bg-slate-800/20 backdrop-blur-md border border-bd-lines font-medium py-3 px-4 justify-between rounded-xl hover:border-accent/50 hover:shadow-md transition-all flex items-center text-xs shadow-sm text-tx-primary group/btn">
-              <div className="flex flex-col items-start">
-                <span className="font-bold text-tx-primary text-left text-[13px] group-hover/btn:text-accent transition-colors">Tablas de Fricción de Tuberías</span>
-                <span className="text-[10px] text-tx-secondary uppercase tracking-widest mt-1 font-semibold flex items-center gap-1"><BookOpen size={10} /> Documento Oficial: Munditol</span>
-              </div>
-              <Download size={16} className="text-tx-secondary group-hover/btn:text-accent transition-colors" />
-            </button>
-
-            <button 
-              onClick={() => alert("Abriendo Manual de Mantenimiento...")}
-              className="w-full bg-slate-800/20 backdrop-blur-md border border-bd-lines font-medium py-3 px-4 justify-between rounded-xl hover:border-accent/50 hover:shadow-md transition-all flex items-center text-xs shadow-sm text-tx-primary group/btn">
-              <div className="flex flex-col items-start">
-                <span className="font-bold text-tx-primary text-left text-[13px] group-hover/btn:text-accent transition-colors">Manual Rotores y Toberas</span>
-                <span className="text-[10px] text-tx-secondary uppercase tracking-widest mt-1 font-semibold flex items-center gap-1"><BookOpen size={10} /> Documento Oficial: Hunter / RainBird</span>
-              </div>
-              <ExternalLink size={16} className="text-tx-secondary group-hover/btn:text-accent transition-colors" />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -1369,14 +1175,7 @@ const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
  <span className="font-semibold text-tx-secondary">Velocidad de Flujo:</span>
  <span className="font-bold text-accent">{resultados?.velocidad || '0 m/s'}</span>
  </div>
- <div className="flex justify-between py-2 border-b border-bd-lines">
- <span className="font-semibold text-tx-secondary">Terreno / Sustrato:</span>
- <span className="font-bold text-tx-primary">{sustrato} & {soleamiento} solemn.</span>
  </div>
- </div>
- {resultados?.recomendacion && (
- <p className="mt-4 text-sm text-tx-secondary italic">Nota: {resultados.recomendacion}</p>
- )}
  </div>
 
  <div className="mb-8">
