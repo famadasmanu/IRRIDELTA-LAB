@@ -41,6 +41,12 @@ export default class ErrorBoundary extends Component<Props, State> {
  <p className="text-tx-secondary mb-8">
  Encontramos un error inesperado al cargar esta sección. Puedes volver a intentarlo o regresar al inicio.
  </p>
+ {this.state.error && (
+   <div className="mb-6 p-4 bg-red-900/10 border border-red-500/20 rounded-xl max-h-40 overflow-auto text-left">
+     <p className="text-xs font-mono text-red-500">{this.state.error.toString()}</p>
+     <pre className="text-[10px] text-tx-secondary mt-2 opacity-70 whitespace-pre-wrap">{this.state.error.stack}</pre>
+   </div>
+ )}
  <div className="flex flex-col gap-3">
  <button
  onClick={() => window.location.reload()}

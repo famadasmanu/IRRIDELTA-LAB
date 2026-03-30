@@ -138,7 +138,7 @@ export default function Configuracion() {
  {/* Toast Notification */}
  {showToast && (
  <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 z-50">
- <div className="bg-green-500 rounded-full p-1">
+ <div className="bg-accent rounded-full p-1">
  <Check size={16} className="text-white" />
  </div>
  <span className="font-medium">Cambios guardados correctamente</span>
@@ -157,14 +157,14 @@ export default function Configuracion() {
  <div className="p-6 pb-2 flex flex-col items-center justify-center text-center border-b border-bd-lines">
  <div className="relative mb-4">
  <div
- className="w-24 h-24 rounded-full bg-accent text-white flex items-center justify-center text-3xl font-bold shadow-sm border-4 border-[#eef2f0] bg-cover bg-center overflow-hidden"
+ className="w-24 h-24 rounded-full bg-accent text-white flex items-center justify-center text-3xl font-bold shadow-sm border-4 border-bd-lines bg-cover bg-center overflow-hidden"
  style={profileData.avatar ? { backgroundImage: `url('${profileData.avatar}')` } : {}}
  >
  {!profileData.avatar && profileData.nombre.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
  </div>
  <button
  onClick={() => setActiveTab('perfil')}
- className="absolute bottom-0 right-0 bg-accent text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md border-2 border-white"
+ className="absolute bottom-0 right-0 bg-accent text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md border-2 border-main"
  >
  <User size={14} />
  </button>
@@ -173,7 +173,7 @@ export default function Configuracion() {
  <p className="text-tx-secondary text-sm mb-4">{profileData.rol}</p>
  <button
  onClick={() => setActiveTab('perfil')}
- className="w-full bg-[#eef2f0] text-accent font-semibold py-2.5 px-4 rounded-xl text-sm transition-colors hover:bg-accent/20"
+ className="w-full bg-slate-800/20 backdrop-blur-md border border-bd-lines text-tx-primary hover:border-accent hover:text-accent font-bold py-2.5 px-4 rounded-xl text-sm transition-all shadow-sm"
  >
  Editar Perfil
  </button>
@@ -186,7 +186,7 @@ export default function Configuracion() {
  <div className="flex flex-col gap-1">
  <button onClick={() => setActiveTab('empresa')} className="flex items-center justify-between w-full p-3 rounded-xl hover:bg-main transition-colors group">
  <div className="flex items-center gap-4">
- <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+ <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
  <Building2 size={20} />
  </div>
  <div className="text-left">
@@ -207,7 +207,7 @@ export default function Configuracion() {
  <div className="flex flex-col gap-1">
  <button onClick={() => setActiveTab('preferencias')} className="flex items-center justify-between w-full p-3 rounded-xl hover:bg-main transition-colors group">
  <div className="flex items-center gap-4">
- <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+ <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
  <Settings size={20} />
  </div>
  <div className="text-left">
@@ -228,7 +228,7 @@ export default function Configuracion() {
  <div className="flex flex-col gap-1">
  <div className="flex items-center justify-between w-full p-3 rounded-xl bg-card">
  <div className="flex items-center gap-4">
- <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+ <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
  <Lock size={20} />
  </div>
  <div className="text-left">
@@ -238,12 +238,12 @@ export default function Configuracion() {
  </div>
  <label className="relative inline-flex items-center cursor-pointer">
  <input type="checkbox" className="sr-only peer" defaultChecked />
- <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-bd-lines after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+ <div className="w-11 h-6 bg-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-transparent after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-bd-lines after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
  </label>
  </div>
  <div className="flex items-center justify-between w-full p-3 rounded-xl bg-card">
  <div className="flex items-center gap-4">
- <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+ <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
  <Fingerprint size={20} />
  </div>
  <div className="text-left">
@@ -253,7 +253,7 @@ export default function Configuracion() {
  </div>
  <label className="relative inline-flex items-center cursor-pointer">
  <input type="checkbox" className="sr-only peer" />
- <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-bd-lines after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+ <div className="w-11 h-6 bg-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-transparent after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-bd-lines after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
  </label>
  </div>
  </div>
@@ -267,7 +267,7 @@ export default function Configuracion() {
  <div className="flex flex-col gap-1">
  <button onClick={() => setActiveTab('roles')} className="flex items-center justify-between w-full p-3 rounded-xl hover:bg-main transition-colors group">
  <div className="flex items-center gap-4">
- <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+ <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
  <Users size={20} />
  </div>
  <div className="text-left">
@@ -288,7 +288,7 @@ export default function Configuracion() {
  <div className="flex flex-col gap-1">
  <button className="flex items-center justify-between w-full p-3 rounded-xl hover:bg-main transition-colors group">
  <div className="flex items-center gap-4">
- <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+ <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
  <HelpCircle size={20} />
  </div>
  <div className="text-left">
@@ -301,7 +301,7 @@ export default function Configuracion() {
  </div>
 
  <div className="p-6 mt-4">
- <button className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border border-red-100 bg-red-50 text-red-600 font-bold text-sm hover:bg-red-100 transition-all">
+ <button className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 font-bold text-sm hover:bg-red-500/20 hover:text-red-300 transition-all shadow-sm">
  <LogOut size={20} />
  Cerrar Sesión
  </button>
@@ -361,7 +361,7 @@ export default function Configuracion() {
  <button
  type="button"
  onClick={() => profileInputRef.current?.click()}
- className="absolute -bottom-2 -right-2 bg-accent text-white p-2 rounded-full shadow-lg hover:bg-[#15803d] transition-colors"
+ className="absolute -bottom-2 -right-2 bg-accent text-white p-2 rounded-full shadow-lg hover:brightness-90 hover:bg-accent transition-colors"
  >
  <Pencil size={14} />
  </button>
@@ -380,7 +380,7 @@ export default function Configuracion() {
  <button
  type="button"
  onClick={() => profileInputRef.current?.click()}
- className="mt-2 flex items-center justify-center gap-2 bg-accent text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#15803d] transition-colors w-fit shadow-sm"
+ className="mt-2 flex items-center justify-center gap-2 bg-accent text-white px-4 py-2 rounded-xl text-sm font-medium hover:brightness-90 hover:bg-accent transition-colors w-fit shadow-sm"
  disabled={isUploadingProfile}
  >
  <Upload size={16} />
@@ -428,7 +428,7 @@ export default function Configuracion() {
 
  {/* Save Action (Sticky Bottom) */}
  <div className="absolute bottom-0 left-0 right-0 pt-4 bg-gradient-to-t from-white via-white to-transparent z-10">
- <button type="submit" className="w-full bg-accent text-white py-3.5 rounded-xl font-bold shadow-lg shadow-accent/20 hover:bg-[#15803d] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+ <button type="submit" className="w-full bg-accent text-white py-3.5 rounded-xl font-bold shadow-lg shadow-accent/20 hover:brightness-90 hover:bg-accent active:scale-[0.98] transition-all flex items-center justify-center gap-2">
  <Save size={20} />
  Guardar Cambios
  </button>
@@ -467,7 +467,7 @@ export default function Configuracion() {
  <button
  type="button"
  onClick={() => fileInputRef.current?.click()}
- className="absolute -bottom-2 -right-2 bg-accent text-white p-2 rounded-full shadow-lg hover:bg-[#15803d] transition-colors"
+ className="absolute -bottom-2 -right-2 bg-accent text-white p-2 rounded-full shadow-lg hover:brightness-90 hover:bg-accent transition-colors"
  >
  <Pencil size={14} />
  </button>
@@ -486,7 +486,7 @@ export default function Configuracion() {
  <button
  type="button"
  onClick={() => fileInputRef.current?.click()}
- className="mt-2 flex items-center justify-center gap-2 bg-accent text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#15803d] transition-colors w-fit shadow-sm"
+ className="mt-2 flex items-center justify-center gap-2 bg-accent text-white px-4 py-2 rounded-xl text-sm font-medium hover:brightness-90 hover:bg-accent transition-colors w-fit shadow-sm"
  disabled={isUploading}
  >
  <Upload size={16} />
@@ -594,7 +594,7 @@ export default function Configuracion() {
 
  {/* Save Action (Sticky Bottom) */}
  <div className="absolute bottom-0 left-0 right-0 pt-4 bg-gradient-to-t from-white via-white to-transparent z-10">
- <button type="submit" className="w-full bg-accent text-white py-3.5 rounded-xl font-bold shadow-lg shadow-accent/20 hover:bg-[#15803d] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+ <button type="submit" className="w-full bg-accent text-white py-3.5 rounded-xl font-bold shadow-lg shadow-accent/20 hover:brightness-90 hover:bg-accent active:scale-[0.98] transition-all flex items-center justify-center gap-2">
  <Save size={20} />
  Guardar Cambios
  </button>
@@ -711,7 +711,7 @@ export default function Configuracion() {
 
  {/* Save Action (Sticky Bottom) */}
  <div className="absolute bottom-0 left-0 right-0 pt-4 bg-gradient-to-t from-white via-white to-transparent z-10">
- <button type="submit" className="w-full bg-accent text-white py-3.5 rounded-xl font-bold shadow-lg shadow-accent/20 hover:bg-[#15803d] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+ <button type="submit" className="w-full bg-accent text-white py-3.5 rounded-xl font-bold shadow-lg shadow-accent/20 hover:brightness-90 hover:bg-accent active:scale-[0.98] transition-all flex items-center justify-center gap-2">
  <Save size={20} />
  Guardar Cambios
  </button>
@@ -777,13 +777,13 @@ export default function Configuracion() {
  </div>
  <label className="relative inline-flex items-center cursor-pointer">
  <input type="checkbox" className="sr-only peer" defaultChecked={i !== 1} />
- <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-bd-lines after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+ <div className="w-11 h-6 bg-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-transparent after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-card after:border-bd-lines after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
  </label>
  </div>
  ))}
  </div>
  <div className="pt-6 border-t border-bd-lines flex justify-end">
- <button type="submit" className="bg-accent text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-[#15803d] transition-colors font-medium">
+ <button type="submit" className="bg-accent text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:brightness-90 hover:bg-accent transition-colors font-medium">
  <Save size={18} />
  Guardar Preferencias
  </button>
@@ -809,7 +809,7 @@ export default function Configuracion() {
  </div>
  </div>
  <div className="pt-6 border-t border-bd-lines flex justify-start">
- <button type="submit" className="bg-accent text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-[#15803d] transition-colors font-medium">
+ <button type="submit" className="bg-accent text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:brightness-90 hover:bg-accent transition-colors font-medium">
  <Save size={18} />
  Actualizar Contraseña
  </button>

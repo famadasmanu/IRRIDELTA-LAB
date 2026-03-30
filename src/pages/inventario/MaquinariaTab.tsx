@@ -92,56 +92,59 @@ export function MaquinariaTab({ searchQuery, onAddToPedido }: { searchQuery: str
             </div>
 
             <div className="p-5 flex-1 flex flex-col pt-6 relative items-center text-center">
-              {/* Decorative Accent Top Border (Maquinarias use Slate-400 as accent) */}
+              {/* Decorative Accent Top Border */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-slate-400 rounded-b-full"></div>
 
-              <div className="flex justify-center items-start mb-2 w-full">
-                <div>
-                  <h3 className="text-xl font-black text-slate-800 dark:text-white leading-tight">{item.nombre}</h3>
+              <div className="flex justify-center items-start mb-3 w-full">
+                <div className="w-full">
+                  <h3 className="text-xl font-black text-tx-primary leading-tight capitalize truncate px-2">{item.nombre}</h3>
                   <div className="flex items-center justify-center gap-1.5 mt-2">
-                    <MapPin size={12} className={item.ubicacionTipo === 'proyecto' ? 'text-slate-500 dark:text-slate-400' : 'text-accent'} /> 
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{item.ubicacionTipo === 'proyecto' ? item.proyectoNombre : 'Depósito Central'}</span>
+                    <MapPin size={12} className={item.ubicacionTipo === 'proyecto' ? 'text-tx-secondary' : 'text-accent'} /> 
+                    <span className="text-xs font-bold uppercase tracking-wider text-tx-secondary truncate max-w-[200px]">{item.ubicacionTipo === 'proyecto' ? item.proyectoNombre : 'Depósito Central'}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 mb-4 w-full text-left">
-                <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-200 dark:border-slate-600/30">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Asignado a</span>
-                  <span className="text-sm font-black text-slate-700 dark:text-slate-200 truncate block">{item.asignadoA || 'Sin Asignar'}</span>
+              {/* Info Blocks Vertically Stacked */}
+              <div className="mt-2 flex flex-col gap-2 mb-4 w-full text-left">
+                <div className="bg-main px-4 py-2.5 rounded-xl border border-bd-lines flex items-center justify-between gap-3 shadow-sm">
+                  <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-widest shrink-0">Responsable</span>
+                  <span className="text-sm font-black text-tx-primary truncate">{item.asignadoA || 'Sin Asignar'}</span>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-200 dark:border-slate-600/30">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Cliente / Ubicación</span>
-                  <span className="text-sm font-black text-slate-700 dark:text-slate-200 truncate col-span-1">{item.clienteNombre || 'Bodega Central'}</span>
+                <div className="bg-main px-4 py-2.5 rounded-xl border border-bd-lines flex items-center justify-between gap-3 shadow-sm">
+                   <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-widest shrink-0">Sitio / Obra</span>
+                   <span className="text-sm font-black text-tx-primary truncate text-right">{item.clienteNombre || 'Bodega Central'}</span>
                 </div>
               </div>
 
-              <div className="flex gap-2 w-full mt-2 mb-2">
+              {/* Main Actions */}
+              <div className="flex flex-col gap-2 w-full mb-2">
                 <button
                   onClick={() => onAddToPedido && onAddToPedido(item)}
-                  className="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5 border border-blue-500/30 shadow-sm"
+                  className="w-full bg-accent text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[#15803d] transition-all justify-center flex items-center gap-2 shadow-md"
                   title="Añadir a checklist de pedido"
                 >
-                  <ShoppingCart size={16} /> Pedir
+                  <ShoppingCart size={18} /> Pedir Traslado
                 </button>
                 {item.solicitaReparacion && (
                   <a
                     href={`https://wa.me/?text=${encodeURIComponent(`Hola, necesito soporte urgente para la máquina: ${item.nombre}. Cliente asignado: ${item.clienteNombre || 'Bodega Central'}.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] dark:text-[#25D366] px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5 border border-[#25D366]/30 shadow-sm"
+                    className="w-full bg-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-600 transition-all flex items-center justify-center gap-2 shadow-md"
                     title="Contactar soporte técnico por falla"
                   >
-                    <MessageCircle size={16} /> Soporte
+                    <MessageCircle size={18} /> Soporte Técnico Urgent
                   </a>
                 )}
               </div>
 
-              <div className="mt-auto pt-4 border-t border-slate-200 dark:border-slate-700/50 flex justify-between gap-2 w-full">
-                <button onClick={() => { setEditingItem(item); setFormData(item); }} className="flex-1 py-2 bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-600/50 text-slate-700 dark:text-slate-200 font-bold text-sm rounded-xl transition-colors border border-slate-200 dark:border-slate-600/30">
-                  Gestionar Ficha
+              {/* Bottom Admin Actions */}
+              <div className="mt-auto pt-4 border-t border-bd-lines/50 flex gap-2 w-full">
+                <button onClick={() => { setEditingItem(item); setFormData(item); }} className="flex-1 py-2.5 bg-card hover:bg-main text-tx-primary font-bold text-sm rounded-xl transition-colors border border-bd-lines flex justify-center items-center gap-2 shadow-sm">
+                  <Edit2 size={16} className="text-tx-secondary" /> Ficha Técnica
                 </button>
-                <button onClick={() => { if(window.confirm('¿Eliminar máquina permanentemente?')) remove(item.id); }} className="px-3 py-2 bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-white hover:bg-red-50 dark:hover:bg-red-500/80 hover:border-red-200 dark:hover:border-red-600 rounded-xl transition-colors border border-slate-200 dark:border-slate-600/30">
+                <button onClick={() => { if(window.confirm('¿Eliminar máquina permanentemente?')) remove(item.id); }} className="px-3.5 py-2.5 bg-red-50/50 dark:bg-red-500/10 text-red-500 hover:text-white hover:bg-red-500 rounded-xl transition-colors border border-red-200 dark:border-red-500/30 flex items-center justify-center shrink-0 shadow-sm">
                   <Trash2 size={18} />
                 </button>
               </div>

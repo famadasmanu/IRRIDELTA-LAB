@@ -6,19 +6,19 @@ service cloud.firestore {
     function isAuthenticated() { return request.auth != null; }
     function isAnonymous() { return request.auth.token.firebase.sign_in_provider == 'anonymous'; }
 
-    // Validación de roles desde la colección maestra "users"
+    // Validación de roles de forma SEGURA consultando directamente a la BD
     function getRole() {
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
       return userDoc == null ? 'ninguno' : userDoc.data.role;
     }
 
-    // Clasificación Rápida
+    // Clasificación Rápida de Roles
     function isAdmin() { return getRole() == 'admin'; }
     function isTecnico() { return getRole() == 'tecnico' || isAdmin(); }
     function isVendedor() { return getRole() == 'vendedor' || isAdmin(); }
-    function isOperario() { return getRole() == 'operario' || isTecnico() || isVendedor(); } // Basic employee
+    function isOperario() { return getRole() == 'operario' || isTecnico() || isVendedor(); }
 
-    function isGuestBypass() { return isAnonymous(); } // El modo invitado tiene lectura libre como demo
+    function isGuestBypass() { return isAnonymous(); }
 
     // -------- REGLAS ESPECÍFICAS DE COLECCIONES -------- //
     
@@ -30,64 +30,116 @@ service cloud.firestore {
 
     // 1. Colección de Seguridad (Roles)
     match /users/{userId} {
-      // Uno lee su rol, los admins o demos leen todos los roles
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isGuestBypass());
-      // Admins rigen, pero debes poder crearte por primera vez
+      // El Invitado ya NO puede leer la colección de roles.
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAuthenticated() && (isAdmin() || request.auth.uid == userId);
       allow delete: if isAuthenticated() && isAdmin();
     }
 
-    // 2. Colecciones de Alta Sensibilidad (Gerencia y RRHH)
-    match /personal_staff/{document=**} {
-      allow read: if isAuthenticated() && (isAdmin() || isGuestBypass());
+    // 2. Colecciones de Alta Sensibilidad (Gerencia, RRHH, Finanzas)
+    // El Invitado y los operarios básicos NO tienen permiso de lectura ni escritura aquí.
+    match /personalData/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
       allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
     }
-    match /finanzas/{document=**} {
-      allow read: if isAuthenticated() && (isAdmin() || isGuestBypass());
+    match /personal_vehicles/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /personal_deliveries/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /corrective_issues/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /upcoming_services/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /rentabilidad/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /cheques/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /pagos/{document=**} {
+      allow read: if isAuthenticated() && isAdmin();
       allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
     }
     match /proveedores/{document=**} {
-      allow read: if isAuthenticated() && (isAdmin() || isGuestBypass());
+      allow read: if isAuthenticated() && isAdmin();
       allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
     }
 
-    // 3. Colecciones Operativas y de Ventas (Archivos, Trabajos, Clientes)
+    // 3. Colecciones Operativas y de Exposición (Trabajos, Clientes, Inventario)
+    // El Modo Invitado SÍ tiene acceso de lectura para que pueda ver la demostración funcional.
     match /clientes/{document=**} {
       allow read: if isAuthenticated();
-      // Tec y Vend pueden escribir, admin también
+      allow write: if isAuthenticated() && !isAnonymous() && (isTecnico() || isVendedor());
+    }
+    match /clientes_data/{document=**} {
+      allow read: if isAuthenticated();
       allow write: if isAuthenticated() && !isAnonymous() && (isTecnico() || isVendedor());
     }
     match /archivos/{document=**} {
       allow read: if isAuthenticated() && (isVendedor() || isGuestBypass());
       allow write: if isAuthenticated() && !isAnonymous() && isVendedor();
     }
-    match /trabajos/{document=**} {
+    match /trabajos_portfolio/{document=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
     }
-    match /inventario/{document=**} {
+    match /trabajos_anotaciones/{document=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
     }
-    match /maquinaria/{document=**} {
+    match /projects/{document=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
     }
-    match /aditivos/{document=**} {
+    match /inventario_maquinas/{document=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
     }
-    match /materiales/{document=**} {
+    match /inventario_aditivos/{document=**} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && !isAnonymous() && isTecnico();
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
+    }
+    match /inventario_generales/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
+    }
+    match /alertas/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && !isAnonymous() && isOperario();
+    }
+    match /partner_news/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
+    }
+    match /directorio_profesionales/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin() && !isAnonymous();
     }
 
-    // 4. Fallback Global para Todo lo Demás (Ej: Alertas, etc)
+    // 4. Fallback Global BLINDADO (Si nos olvidamos de declarar una colección)
+    match /garantias_y_maquinas/{document=**} {
+      // El cliente desde la web puede crear el documento. Nadie (ni invitado) puede leerlo salvo admin/tecnico.
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated() && (isAdmin() || isTecnico());
+    }
+
     match /{collection}/{document=**} {
-      // Lectura por defecto abierta para que la app no cruja.
-      allow read: if isAuthenticated();
-      // Escritura por defecto solo para usuarios registrados que tengan algún rol (no anonimos, no recien creados sin rol)
+      // PROHIBICIÓN de lectura genérica abierta. 
+      // Solo el Admin puede leer si algo quedó sin configurar. Evita robos masivos de datos.
+      allow read: if isAuthenticated() && isAdmin();
+      
+      // Prohibición de escritura genérica para anónimos.
       allow write: if isAuthenticated() && !isAnonymous() && isOperario();
     }
   }

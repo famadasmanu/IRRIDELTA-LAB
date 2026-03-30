@@ -365,7 +365,7 @@ export default function Trabajos() {
             qty: g.cantidad || 1
         }));
 
-        const updateData = {
+        const updateData: any = {
             gastos: gastosToUse,
             rentabilidad: Number(metricsForm.rentabilidad) || 0,
             gastoDistancia: Number(metricsForm.gastoDistancia) || 0,
@@ -375,6 +375,11 @@ export default function Trabajos() {
             checklist: [...currentChecklist, ...newChecklistItems],
             assignedItems: [...currentAssigned, ...newAssignedItems]
         };
+
+        if (metricsForm.estado === 'Completado' && !selectedTrabajo.fechaFinalizacion) {
+            updateData.fechaFinalizacion = new Date().toISOString().split('T')[0];
+        }
+
         await updatePortfolioInDB(id, updateData);
 
         setSelectedTrabajo({ ...selectedTrabajo, ...updateData });
@@ -1214,45 +1219,99 @@ export default function Trabajos() {
 
                                             </div>
 {/* Hidden PDF Template */}
-                    <div id="pdf-presupuesto-content" style={{ display: 'none', width: '800px', padding: '40px', backgroundColor: '#ffffff', color: '#000000', fontFamily: 'sans-serif' }}>
-                        <h1 style={{ fontSize: '24px', fontWeight: 'bold', borderBottom: '2px solid #059669', paddingBottom: '10px', marginBottom: '20px', color: '#1f2937' }}>
-                            Presupuesto de Obra: {selectedTrabajo.titulo}
-                        </h1>
-                        <div style={{ marginBottom: '30px', color: '#4b5563', fontSize: '14px' }}>
-                            <p style={{ marginBottom: '5px' }}><strong style={{ color: '#1f2937' }}>Cliente:</strong> {selectedTrabajo.cliente}</p>
-                            <p style={{ marginBottom: '5px' }}><strong style={{ color: '#1f2937' }}>Ubicación:</strong> {selectedTrabajo.ubicacion}</p>
-                            <p style={{ marginBottom: '5px' }}><strong style={{ color: '#1f2937' }}>Fecha:</strong> {new Date().toLocaleDateString('es-AR')}</p>
+                    <div id="pdf-presupuesto-content" style={{ display: 'none', width: '800px', padding: '50px', backgroundColor: '#ffffff', color: '#1f2937', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                        {/* Encabezado */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
+                            <div>
+                                {companyData?.logo ? (
+                                    <img src={companyData.logo} alt="Logo" style={{ maxHeight: '60px', marginBottom: '15px' }} />
+                                ) : (
+                                    <h2 style={{ fontSize: '28px', fontWeight: '900', color: '#059669', margin: 0, letterSpacing: '-0.5px' }}>{companyData?.nombre || 'Argen Software'}</h2>
+                                )}
+                                <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0 0' }}>{companyData?.direccion || 'Buenos Aires, Argentina'}</p>
+                                <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0 0' }}>CUIT: {companyData?.cuit || '---'} | Mail: admin@argen.com</p>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <h1 style={{ fontSize: '32px', fontWeight: '800', color: '#e5e7eb', margin: '0 0 10px 0', letterSpacing: '2px', textTransform: 'uppercase' }}>Presupuesto</h1>
+                                <div style={{ backgroundColor: '#059669', color: 'white', padding: '6px 16px', borderRadius: '6px', display: 'inline-block', fontSize: '14px', fontWeight: 'bold' }}>
+                                    Nº {Math.floor(Math.random() * 10000).toString().padStart(4, '0')}
+                                </div>
+                            </div>
                         </div>
 
-                        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '14px' }}>
+                        {/* Info Cliente */}
+                        <div style={{ display: 'flex', gap: '30px', marginBottom: '40px', backgroundColor: '#f9fafb', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6' }}>
+                            <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: '11px', textTransform: 'uppercase', color: '#9ca3af', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '1px' }}>Facturar a</p>
+                                <p style={{ fontSize: '16px', fontWeight: '700', color: '#1f2937', margin: '0 0 4px 0' }}>{selectedTrabajo.cliente}</p>
+                                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>📍 {selectedTrabajo.ubicacion}</p>
+                            </div>
+                            <div style={{ flex: 1, borderLeft: '1px solid #e5e7eb', paddingLeft: '30px' }}>
+                                <p style={{ fontSize: '11px', textTransform: 'uppercase', color: '#9ca3af', fontWeight: 'bold', margin: '0 0 6px 0', letterSpacing: '1px' }}>Detalle de Obra</p>
+                                <p style={{ fontSize: '14px', color: '#1f2937', margin: '0 0 6px 0' }}><strong>Proyecto:</strong> {selectedTrabajo.titulo}</p>
+                                <p style={{ fontSize: '14px', color: '#1f2937', margin: 0 }}><strong>Fecha:</strong> {new Date().toLocaleDateString('es-AR')}</p>
+                            </div>
+                        </div>
+
+                        {/* Tabla */}
+                        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
                             <thead>
-                                <tr style={{ backgroundColor: '#f3f4f6' }}>
-                                    <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'left', color: '#374151' }}>Descripción</th>
-                                    <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#374151' }}>Cant.</th>
-                                    <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'right', color: '#374151' }}>Precio Unit.</th>
-                                    <th style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'right', color: '#374151' }}>Total</th>
+                                <tr>
+                                    <th style={{ padding: '12px 16px', borderBottom: '2px solid #e5e7eb', textAlign: 'left', color: '#6b7280', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Descripción</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '2px solid #e5e7eb', textAlign: 'center', color: '#6b7280', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Cant.</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '2px solid #e5e7eb', textAlign: 'right', color: '#6b7280', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Precio U.</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '2px solid #e5e7eb', textAlign: 'right', color: '#6b7280', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Subtotal</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {gastosDetalle.map((item, idx) => (
                                     <tr key={idx}>
-                                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', color: '#4b5563' }}>{item.descripcion}</td>
-                                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', color: '#4b5563' }}>{item.cantidad}</td>
-                                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'right', color: '#4b5563' }}>${item.precioUnitario.toLocaleString('es-AR')}</td>
-                                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'right', color: '#1f2937', fontWeight: '500' }}>${((Number(item.cantidad) || 0) * (Number(item.precioUnitario) || 0)).toLocaleString('es-AR')}</td>
+                                        <td style={{ padding: '16px', borderBottom: '1px solid #f3f4f6', color: '#1f2937', fontSize: '14px', fontWeight: '500' }}>{item.descripcion}</td>
+                                        <td style={{ padding: '16px', borderBottom: '1px solid #f3f4f6', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>{item.cantidad}</td>
+                                        <td style={{ padding: '16px', borderBottom: '1px solid #f3f4f6', textAlign: 'right', color: '#6b7280', fontSize: '14px' }}>${item.precioUnitario.toLocaleString('es-AR')}</td>
+                                        <td style={{ padding: '16px', borderBottom: '1px solid #f3f4f6', textAlign: 'right', color: '#1f2937', fontSize: '14px', fontWeight: '600' }}>${((Number(item.cantidad) || 0) * (Number(item.precioUnitario) || 0)).toLocaleString('es-AR')}</td>
                                     </tr>
                                 ))}
+                                {gastosDetalle.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#9ca3af', fontStyle: 'italic', borderBottom: '1px solid #f3f4f6' }}>
+                                            No hay ítems registrados en el presupuesto actual.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colSpan={3} style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'right', fontWeight: 'bold', color: '#1f2937' }}>Total Gastos:</td>
-                                    <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'right', fontWeight: 'bold', color: '#059669', fontSize: '16px' }}>${gastosToUse.toLocaleString('es-AR')}</td>
-                                </tr>
-                            </tfoot>
                         </table>
 
-                        <div style={{ marginTop: '50px', paddingTop: '20px', borderTop: '1px solid #e5e7eb', color: '#6b7280', fontSize: '12px', textAlign: 'center' }}>
-                            Documento generado automáticamente por el sistema de gestión.
+                        {/* Totales */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '30px' }}>
+                            <div style={{ width: '320px', backgroundColor: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#6b7280', fontSize: '14px' }}>
+                                    <span>Subtotal neto</span>
+                                    <span>${gastosToUse.toLocaleString('es-AR')}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#6b7280', fontSize: '14px' }}>
+                                    <span>Impuestos (0%)</span>
+                                    <span>$0</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '16px', borderTop: '2px solid #e2e8f0', color: '#0f172a', fontSize: '22px', fontWeight: '900' }}>
+                                    <span>Total Final</span>
+                                    <span style={{ color: '#059669' }}>${gastosToUse.toLocaleString('es-AR')}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ marginTop: '80px', borderTop: '1px solid #e5e7eb', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <p style={{ color: '#9ca3af', fontSize: '11px', margin: '0 0 4px 0', fontWeight: '600', textTransform: 'uppercase' }}>Condiciones Legales</p>
+                                <p style={{ color: '#9ca3af', fontSize: '11px', margin: 0 }}>
+                                    Documento generado automáticamente. Validez del presupuesto: 15 días a partir de la fecha.
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '20px', height: '20px', backgroundColor: '#059669', borderRadius: '4px', opacity: 0.8 }}></div>
+                                <span style={{ color: '#1f2937', fontSize: '13px', fontWeight: '800', letterSpacing: '-0.2px' }}>{companyData?.nombre || 'Argen Software'}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
-import { Plus, Trash2, Calendar, FileText, CheckCircle, Clock, AlertTriangle, User, PenTool, X, Search, ChevronRight, Package, Download, Send } from 'lucide-react';
+import { Plus, Trash2, Calendar, FileText, CheckCircle, Clock, AlertTriangle, User, PenTool, X, Search, ChevronRight, Package, Download, Send, CheckCheck, MapPin, Image as ImageIcon } from 'lucide-react';
 import { Modal } from './Modal';
 import { jsPDF } from 'jspdf';
 import { cn } from '../lib/utils';
@@ -11,6 +11,7 @@ export function TrabajosOrdenesTab() {
   const { data: ordenesData, add: addOrden, update: updateOrden, remove: removeOrden } = useFirestoreCollection<any>('trabajos_ordenes');
   const { data: proyectosData, update: updateProyecto } = useFirestoreCollection<any>('projects');
   const { data: personalData } = useFirestoreCollection<any>('personalData');
+  const { data: clientesData } = useFirestoreCollection<any>('clientes');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrden, setSelectedOrden] = useState<any>(null);
@@ -22,6 +23,12 @@ export function TrabajosOrdenesTab() {
   const [newProyectoPadre, setNewProyectoPadre] = useState('');
   const [newProyectoId, setNewProyectoId] = useState('');
   const [selectedItems, setSelectedItems] = useState<{ id: string, desc: string, cant: number }[]>([]);
+
+  // Features Extras
+  const [newPrioridad, setNewPrioridad] = useState('Media');
+  const [newTipoTarea, setNewTipoTarea] = useState('');
+  const [isUploadingAdjunto, setIsUploadingAdjunto] = useState(false);
+  const [newAdjuntoUrl, setNewAdjuntoUrl] = useState('');
 
   // Formularios de Firma (Empleado)
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
@@ -87,6 +94,37 @@ export function TrabajosOrdenesTab() {
     }, 100);
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    setIsUploadingAdjunto(true);
+    try {
+      const fileRef = ref(storage, `ordenes_adjuntos/${Date.now()}_${file.name}`);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+      setNewAdjuntoUrl(url);
+    } catch (err) {
+      console.error(err);
+      alert("Error al subir el archivo.");
+    }
+    setIsUploadingAdjunto(false);
+  };
+
+  const handleMarcarLeida = async (orden: any) => {
+     if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+           const loc = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+           await updateOrden(orden.id, { leida: true, fechaLeida: new Date().toLocaleString('es-AR'), ubicacionLeida: loc });
+           alert("Orden marcada como leída. Trazabilidad GPS Registrada.");
+        }, async () => {
+           await updateOrden(orden.id, { leida: true, fechaLeida: new Date().toLocaleString('es-AR'), ubicacionLeida: 'GPS Denegado' });
+           alert("Orden marcada como leída (Sin GPS).");
+        });
+     } else {
+        await updateOrden(orden.id, { leida: true, fechaLeida: new Date().toLocaleString('es-AR') });
+     }
+  };
+
   const handleCreateOrden = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmpleado || !newProyectoId || !newInstrucciones) {
@@ -94,7 +132,7 @@ export function TrabajosOrdenesTab() {
       return;
     }
 
-    const prj = proyectosData.find(p => p.id === newProyectoId);
+    const prj = proyectosData.find(p => p.id === newProyectoId || p.name === newProyectoId);
     
     // Guardamos el agrupador "proyectoPadre" en la propia obra si es que es nuevo o diferente
     if (prj && prj.proyectoPadre !== newProyectoPadre) {
@@ -104,14 +142,18 @@ export function TrabajosOrdenesTab() {
     await addOrden({
       fecha: new Date().toLocaleDateString('es-AR'),
       empleado: newEmpleado,
-      proyectoId: newProyectoId,
+      proyectoId: prj?.id || newProyectoId, // Guardamos ID si existe, sino el texto libre
       proyectoPadre: newProyectoPadre || 'Proyecto Principal',
-      proyectoNombre: prj?.name || 'Varios',
+      proyectoNombre: prj?.name || newProyectoId, // Usar el texto libre como nombre
       instrucciones: newInstrucciones,
       materialesPrevistos: selectedItems,
       estado: 'Pendiente',
       anotacionesEmpleado: '',
-      firmaUrl: ''
+      firmaUrl: '',
+      prioridad: newPrioridad,
+      tipoTarea: newTipoTarea,
+      adjuntoUrl: newAdjuntoUrl,
+      leida: false
     });
 
     setIsModalOpen(false);
@@ -120,6 +162,9 @@ export function TrabajosOrdenesTab() {
     setNewProyectoId('');
     setNewProyectoPadre('');
     setSelectedItems([]);
+    setNewPrioridad('Media');
+    setNewTipoTarea('');
+    setNewAdjuntoUrl('');
   };
 
   const handleOpenSign = (orden: any) => {
@@ -328,18 +373,38 @@ export function TrabajosOrdenesTab() {
                   </div>
 
                   <span className={cn(
-                    "text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
+                    "text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 w-max",
                     orden.estado === 'Finalizado' ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : 
                     "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                   )}>
                     {orden.estado}
+                    {orden.leida && orden.estado !== 'Finalizado' && <span title={`Leída: ${orden.fechaLeida}`}><CheckCheck size={14} /></span>}
                   </span>
+                </div>
+
+                <div className="flex gap-2 mb-3">
+                   <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-lg border uppercase tracking-widest", 
+                      orden.prioridad === 'Alta' || orden.prioridad === 'Urgente' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                      orden.prioridad === 'Media' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : 
+                      'bg-green-500/10 text-green-500 border-green-500/20'
+                   )}>
+                      PRIORIDAD: {orden.prioridad || 'Media'}
+                   </span>
+                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-blue-500/10 text-blue-500 border-blue-500/20 uppercase tracking-widest">
+                      {orden.tipoTarea || 'Obra'}
+                   </span>
                 </div>
 
                 <div className="bg-card p-3 rounded-xl border border-bd-lines border-dashed mb-4">
                   <p className="text-sm text-tx-secondary font-medium uppercase text-[10px] tracking-wider mb-1 text-accent">Obra asignada:</p>
                   <p className="text-sm text-tx-primary font-bold">{orden.proyectoNombre}</p>
                 </div>
+                
+                {orden.adjuntoUrl && (
+                  <a href={orden.adjuntoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-accent/10 border border-accent/20 text-accent font-bold text-sm px-3 py-2.5 rounded-xl mb-4 hover:bg-accent hover:text-white transition-colors">
+                     <ImageIcon size={16}/> Ver Plano / Croquis Adjunto
+                  </a>
+                )}
 
                 <div className="mb-6 bg-card dark:bg-slate-900 border border-bd-lines p-3 rounded-xl flex flex-col max-h-[140px] overflow-hidden">
                    <p className="text-[10px] font-bold text-tx-secondary uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -363,12 +428,21 @@ export function TrabajosOrdenesTab() {
 
               <div className="flex gap-2 border-t pt-4 border-bd-lines mt-2">
                  {orden.estado !== 'Finalizado' ? (
-                   <button
-                     onClick={() => handleOpenSign(orden)}
-                     className="flex-1 py-2.5 rounded-xl bg-accent text-white flex justify-center items-center gap-2 font-bold text-sm shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] transition"
-                   >
-                     <CheckCircle size={16} /> Completar y Firmar
-                   </button>
+                   !orden.leida ? (
+                     <button
+                       onClick={() => handleMarcarLeida(orden)}
+                       className="flex-1 py-2.5 rounded-xl bg-blue-500 text-white flex justify-center items-center gap-2 font-bold text-sm shadow-[0_4px_15px_rgba(59,130,246,0.3)] hover:shadow-lg transition animate-pulse"
+                     >
+                       <CheckCheck size={16} /> Acuse de Recibo
+                     </button>
+                   ) : (
+                     <button
+                       onClick={() => handleOpenSign(orden)}
+                       className="flex-1 py-2.5 rounded-xl bg-accent text-white flex justify-center items-center gap-2 font-bold text-sm shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] transition"
+                     >
+                       <CheckCircle size={16} /> Completar y Firmar
+                     </button>
+                   )
                  ) : (
                    <div className="flex-1 flex gap-2">
                      <button
@@ -427,7 +501,8 @@ export function TrabajosOrdenesTab() {
                      );
                      if (matchedProject) {
                        setNewClienteProyecto(matchedProject.cliente || 'Sin Cliente Asociado');
-                       setNewProyectoId(matchedProject.id);
+                       setNewProyectoPadre(matchedProject.proyectoPadre || 'Proyecto Principal');
+                       setNewProyectoId(matchedProject.name); // Usamos el nombre para el datalist 
                        setSelectedItems([]);
                      }
                    }
@@ -445,22 +520,47 @@ export function TrabajosOrdenesTab() {
              <div className="flex flex-col gap-4">
                 <div>
                   <label className="block text-sm font-bold text-tx-secondary mb-1">Cliente / Cuenta</label>
-                  <select 
+                  <input 
+                    list="clientesList"
                     value={newClienteProyecto} 
                     onChange={e => {
-                      setNewClienteProyecto(e.target.value);
-                      setNewProyectoPadre('');
-                      setNewProyectoId('');
+                      const val = e.target.value;
+                      setNewClienteProyecto(val);
+                      
+                      const matches = proyectosData.filter(p => (p.cliente || 'Sin Cliente Asociado').toLowerCase() === val.toLowerCase());
+                      if (matches.length > 0) {
+                         // Auto-rellenar si hay 1 solo Proyecto Base
+                         const padres = Array.from(new Set(matches.map(p => p.proyectoPadre || 'Proyecto Principal')));
+                         if (padres.length === 1) {
+                           setNewProyectoPadre(padres[0] as string);
+                           // Auto-rellenar si hay 1 sola Obra
+                           if (matches.length === 1) {
+                             setNewProyectoId(matches[0].name);
+                           } else {
+                             setNewProyectoId('');
+                           }
+                         } else {
+                           setNewProyectoPadre('');
+                           setNewProyectoId('');
+                         }
+                      } else {
+                         setNewProyectoPadre('');
+                         setNewProyectoId('');
+                      }
                       setSelectedItems([]);
                     }}
+                    placeholder="Escribe o selecciona cliente..."
                     className="w-full rounded-xl border border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 px-3 py-3 text-sm text-gray-900 dark:text-tx-primary focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-sm transition-all" 
                     required
-                  >
-                    <option value="">Selecciona cliente...</option>
-                    {Array.from(new Set(proyectosData.map(p => p.cliente || 'Sin Cliente Asociado'))).sort().map(cli => (
-                      <option key={cli} value={cli as string}>{cli as string}</option>
+                  />
+                  <datalist id="clientesList">
+                    {Array.from(new Set([
+                      ...proyectosData.map(p => p.cliente || 'Sin Cliente Asociado'),
+                      ...clientesData.map(c => c.name || '')
+                    ])).filter(Boolean).sort().map(cli => (
+                      <option key={cli} value={cli as string} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-tx-secondary mb-1">Proyecto Asignado <span className="font-normal text-xs ml-1">(ej. Nombre de la Finca o Casa)</span></label>
@@ -480,7 +580,7 @@ export function TrabajosOrdenesTab() {
                   <datalist id="proyectosPadreList">
                     {Array.from(new Set(
                         proyectosData
-                        .filter(p => (p.cliente || 'Sin Cliente Asociado') === newClienteProyecto)
+                        .filter(p => (p.cliente || 'Sin Cliente Asociado').toLowerCase() === newClienteProyecto.toLowerCase())
                         .map(p => p.proyectoPadre || 'Proyecto Principal')
                     )).sort().map(pPadre => (
                       <option key={pPadre as string} value={pPadre as string} />
@@ -489,25 +589,55 @@ export function TrabajosOrdenesTab() {
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-tx-secondary mb-1">Obra / Tarea Específica <span className="font-normal text-xs ml-1">(Remito/PDF)</span></label>
-                  <select 
+                  <input 
+                    list="obrasList"
                     value={newProyectoId} 
                     onChange={e => {
                       setNewProyectoId(e.target.value);
                       setSelectedItems([]); // reset items if project changes
                     }}
-                    className="w-full rounded-xl border border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 px-3 py-3 text-sm text-gray-900 dark:text-tx-primary focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-sm transition-all disabled:opacity-50" 
+                    placeholder={newProyectoPadre ? 'Escribe o selecciona obra...' : 'Escribe nombre de tarea...'}
+                    className="w-full rounded-xl border border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 px-3 py-3 text-sm text-gray-900 dark:text-tx-primary focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-sm transition-all" 
                     required
-                    disabled={!newProyectoPadre}
-                  >
-                    <option value="">{newProyectoPadre ? 'Selecciona una obra...' : 'Selecciona un proyecto arriba'}</option>
+                  />
+                  <datalist id="obrasList">
                     {proyectosData
-                      .filter(p => (p.cliente || 'Sin Cliente Asociado') === newClienteProyecto)
-                      .filter(p => (p.proyectoPadre || 'Proyecto Principal') === (newProyectoPadre || 'Proyecto Principal'))
+                      .filter(p => (p.cliente || 'Sin Cliente Asociado').toLowerCase() === newClienteProyecto.toLowerCase())
+                      .filter(p => (p.proyectoPadre || 'Proyecto Principal').toLowerCase() === (newProyectoPadre || 'Proyecto Principal').toLowerCase())
                       .map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                      <option key={p.id} value={p.name} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-2 mb-2">
+              <div>
+                 <label className="block text-sm font-bold text-tx-secondary mb-1">Prioridad Geográfica</label>
+                 <select value={newPrioridad} onChange={e => setNewPrioridad(e.target.value)} className="w-full rounded-xl border border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 px-3 py-3 text-sm text-gray-900 dark:text-tx-primary focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-sm transition-all">
+                    <option value="Baja">🟢 Baja (Flexible)</option>
+                    <option value="Media">🟠 Media (Esperada)</option>
+                    <option value="Alta">🔴 Alta (Urgente hoy)</option>
+                    <option value="Urgente">🆘 CRÍTICA (Inmediata)</option>
+                 </select>
+              </div>
+              <div>
+                 <label className="block text-sm font-bold text-tx-secondary mb-1">Plantilla Rápida</label>
+                 <select value={newTipoTarea} onChange={e => {
+                    setNewTipoTarea(e.target.value);
+                    if (newInstrucciones.trim() === '') {
+                      if (e.target.value === 'Reparación') setNewInstrucciones('1. Localizar la fuga.\n2. Cortar válvula principal y desagotar.\n3. Reemplazar pieza dañada.\n4. Prueba hidráulica funcional.');
+                      if (e.target.value === 'Mantenimiento') setNewInstrucciones('1. Limpiar todos los filtros primarios.\n2. Purgar finales de línea (Flush).\n3. Revisar aspersores tapados según indicaciones.');
+                      if (e.target.value === 'Instalación') setNewInstrucciones('1. Zanjeo a profundidad según plano adjunto.\n2. Tendido de cañería y pegado de transiciones.\n3. Tapado y pre-prueba de presión.');
+                    }
+                 }} className="w-full rounded-xl border border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 px-3 py-3 text-sm text-gray-900 dark:text-tx-primary focus:border-accent dark:focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 font-medium shadow-sm transition-all">
+                    <option value="">Selecciona plantilla...</option>
+                    <option value="Instalación">Instalación (Obra Nueva)</option>
+                    <option value="Mantenimiento">Mantenimiento Preventivo</option>
+                    <option value="Reparación">Reparación de Fugas</option>
+                    <option value="Relevamiento">Relevamiento / Diagnóstico</option>
+                 </select>
               </div>
             </div>
 
@@ -523,8 +653,30 @@ export function TrabajosOrdenesTab() {
              />
            </div>
 
+           <div className="mt-4">
+             <label className="block text-sm font-bold text-tx-secondary mb-2">Adjuntar Plano o Captura Visual (Opcional)</label>
+             <div className="border-2 border-dashed border-bd-lines p-4 rounded-xl text-center bg-card hover:bg-main relative transition-all flex flex-col items-center justify-center min-h-[80px]">
+                {isUploadingAdjunto ? (
+                   <span className="text-sm font-bold text-tx-secondary animate-pulse">Subiendo documento seguro, espere...</span>
+                ) : newAdjuntoUrl ? (
+                   <div className="flex flex-col items-center">
+                     <span className="text-sm font-bold text-emerald-500 flex items-center gap-1"><CheckCircle size={16}/> Documento adjuntado exitosamente en la nube</span>
+                     <button type="button" onClick={() => setNewAdjuntoUrl('')} className="mt-2 text-xs text-red-500 hover:text-red-400 font-bold underline">Quitar adjunto</button>
+                   </div>
+                ) : (
+                   <>
+                     <input type="file" accept="image/*,.pdf" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                     <div className="pointer-events-none flex flex-col items-center">
+                        <ImageIcon className="text-tx-secondary mb-1" size={20}/>
+                        <span className="text-xs font-bold text-accent">Arrastra tu croquis o tócá para subir imagen/PDF</span>
+                     </div>
+                   </>
+                )}
+             </div>
+           </div>
+
            {/* Material Selector from Project */}
-           {newProyectoId && proyectosData.find(p => p.id === newProyectoId)?.items && (
+           {newProyectoId && proyectosData.find(p => p.id === newProyectoId || p.name === newProyectoId)?.items && (
              <div className="bg-main p-4 rounded-xl border border-bd-lines">
                <label className="block text-sm font-bold text-tx-primary mb-2 flex items-center gap-2">
                  <Package size={16} className="text-accent" />
@@ -533,7 +685,7 @@ export function TrabajosOrdenesTab() {
                <p className="text-xs text-tx-secondary mb-3">Estos materiales se descontarán del inventario del proyecto una vez que el empleado reciba y firme el acta de conformidad al terminar el trabajo.</p>
                
                <div className="max-h-[200px] overflow-y-auto space-y-2 custom-scrollbar pr-2">
-                 {proyectosData.find(p => p.id === newProyectoId)?.items?.map((it: any) => {
+                 {proyectosData.find(p => p.id === newProyectoId || p.name === newProyectoId)?.items?.map((it: any) => {
                     const isSelected = !!selectedItems.find(s => s.id === it.id);
                     return (
                       <div key={it.id} className="flex items-center gap-3 bg-card p-2 rounded-lg border border-bd-lines">

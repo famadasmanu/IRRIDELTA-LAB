@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { Modal } from '../components/Modal';
+import { jsPDF } from 'jspdf';
 
 // Datos ficticios para el dashboard del Stakeholder (Data Mining)
 const stakeholderStats = {
@@ -63,6 +64,9 @@ export default function Ecosistema() {
     setIsRegisterModalOpen(false);
     setNewDirectorio({ nombre: '', especialidad: 'Sistemas de Riego', zona: '', telefono: '', redSocial: '', descripcion: '' });
   };
+
+  const [directorioSearch, setDirectorioSearch] = useState('');
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Procesamiento en tiempo real de Marcas y Categorías extraidas de Trabajos Completados
   const brandCounts: Record<string, number> = {};
@@ -137,6 +141,104 @@ export default function Ecosistema() {
 
   const displayMaterialUsage = dynamicMaterialUsage.length > 0 ? dynamicMaterialUsage : stakeholderStats.materialUsage;
 
+  const handleExportDataPDF = () => {
+    try {
+      setIsExportingPDF(true);
+      const doc = new jsPDF();
+      let y = 20;
+
+      // Portada y Títulos
+      doc.setFillColor(37, 211, 102); // bg-accent
+      doc.rect(0, 0, 210, 30, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.text("Reporte de Market Intelligence", 14, 20);
+      
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      const dateStr = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
+      doc.text(`Generado el: ${dateStr}`, 14, 40);
+      doc.text("Plataforma Integral: Argent Software", 14, 46);
+      
+      // Separator
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 52, 196, 52);
+      
+      y = 65;
+      
+      // 1. Share de Marcas
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(37, 211, 102);
+      doc.text("1. Share de Marcas - Instalación Real en Obras", 14, y);
+      y += 10;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      displayBrandShare.forEach((b: any) => {
+        doc.text(`• ${b.brand}: ${b.percentage}% (Basado en ${b.count || 0} unidades instaladas)`, 14, y);
+        y += 8;
+      });
+      
+      y += 10;
+      if (y > 270) { doc.addPage(); y = 20; }
+      
+      // 2. Consumo Materiales
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(59, 130, 246); // bg-blue-500
+      doc.text("2. Volumen Acumulado de Componentes Físicos", 14, y);
+      y += 10;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      displayMaterialUsage.forEach((m: any) => {
+        doc.text(`• ${m.material}: ${m.amount} (Tendencia: ${m.trend === 'up' ? 'Alza' : 'Baja'})`, 14, y);
+        y += 8;
+      });
+
+      y += 10;
+      if (y > 270) { doc.addPage(); y = 20; }
+      
+      // 3. Cementerio / Fallas
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(249, 115, 22); // orange-500
+      doc.text("3. Pain Points / Reportes de Fallas en Campo (El Cementerio)", 14, y);
+      y += 10;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      displayFallas.forEach((f: any) => {
+        doc.text(`• ${f.topic}: ${f.mentions} casos detectados (Crecimiento aprox: ${f.growth})`, 14, y);
+        y += 8;
+      });
+
+      // Pie de pág
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(150, 150, 150);
+      doc.text("Argent Software - Derechos Reservados. Documento confidencial exclusivo comercial.", 14, 290);
+      
+      doc.save(`Stakeholders_Inteligencia_${format(new Date(), 'MMyy')}.pdf`);
+    } catch (error) {
+       console.error("Error creating PDF", error);
+       alert("Hubo un error construyendo el PDF corporativo.");
+    } finally {
+       setIsExportingPDF(false);
+    }
+  };
+
+  const filteredDirectorio = directorioData.filter((prof: any) => {
+    const s = directorioSearch.toLowerCase();
+    return (prof.nombre || '').toLowerCase().includes(s) || 
+           (prof.especialidad || '').toLowerCase().includes(s) || 
+           (prof.zona || '').toLowerCase().includes(s);
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -182,7 +284,7 @@ export default function Ecosistema() {
             </div>
             <div className="relative z-10 mb-6 md:mb-0 max-w-2xl">
                <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Tu Comunidad Oficial en WhatsApp</h2>
-               <p className="text-emerald-50 text-base md:text-lg font-medium leading-relaxed">
+               <p className="text-accent/20 text-base md:text-lg font-medium leading-relaxed">
                  Únete al grupo cerrado de instaladores, paisajistas y técnicos de Argent Software. Conversa sin intermediarios.
                </p>
             </div>
@@ -201,23 +303,35 @@ export default function Ecosistema() {
               </h3>
               <p className="text-tx-secondary mt-1 text-sm">Encuentra y contacta subcontratistas directamente, sin comisiones.</p>
             </div>
-            <button onClick={() => setIsRegisterModalOpen(true)} className="flex items-center gap-2 bg-accent text-white hover:bg-emerald-600 font-bold px-5 py-3 rounded-xl transition-all shadow-sm w-full md:w-auto justify-center">
+            
+            <div className="flex-1 max-w-md w-full relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-tx-secondary" size={18} />
+              <input 
+                type="text" 
+                placeholder="Filtrar por Especialidad, Zona o Nombre..." 
+                value={directorioSearch}
+                onChange={e => setDirectorioSearch(e.target.value)}
+                className="w-full bg-card border border-bd-lines rounded-xl pl-12 pr-4 py-3.5 text-tx-primary text-sm font-semibold focus:ring-2 focus:ring-accent outline-none shadow-sm transition-all"
+              />
+            </div>
+            
+            <button onClick={() => setIsRegisterModalOpen(true)} className="flex items-center shrink-0 gap-2 bg-accent text-white hover:brightness-110 font-bold px-5 py-3.5 rounded-xl transition-all shadow-sm w-full md:w-auto justify-center">
               <UserPlus size={18} /> Ofrecer mis Servicios
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-             {directorioData.map(prof => (
+             {filteredDirectorio.map((prof: any) => (
                <div key={prof.id} className="bg-card border border-bd-lines rounded-3xl p-6 shadow-sm hover:border-accent hover:shadow-md transition-all group flex flex-col h-full">
                   <div className="flex items-center gap-4 mb-5">
                      <div className="size-16 rounded-full bg-gradient-to-br from-accent to-[#128C7E] p-[2px]">
                        <div className="w-full h-full bg-card rounded-full flex items-center justify-center text-tx-primary text-xl font-black uppercase">
-                         {prof.nombre.substring(0,2)}
+                         {(prof.nombre || '??').substring(0,2)}
                        </div>
                      </div>
                      <div>
-                       <h4 className="font-bold text-tx-primary text-[1.1rem] leading-tight group-hover:text-accent transition-colors">{prof.nombre}</h4>
-                       <p className="text-sm font-bold text-accent/80 uppercase tracking-wider text-[10px] mt-1">{prof.especialidad}</p>
+                       <h4 className="font-bold text-tx-primary text-[1.1rem] leading-tight group-hover:text-accent transition-colors">{prof.nombre || 'Sin Nombre'}</h4>
+                       <p className="text-sm font-bold text-accent/80 uppercase tracking-wider text-[10px] mt-1">{prof.especialidad || 'Especialidad'}</p>
                      </div>
                   </div>
                   
@@ -230,10 +344,10 @@ export default function Ecosistema() {
                   <div className="mb-auto space-y-3 pb-6 border-b border-bd-lines/50">
                     <p className="text-sm text-tx-secondary flex items-start gap-3">
                        <MapPin size={16} className="shrink-0 text-tx-primary/50 mt-0.5" /> 
-                       <span className="text-tx-primary font-medium">{prof.zona}</span>
+                       <span className="text-tx-primary font-medium">{prof.zona || 'No especificada'}</span>
                     </p>
-                    {prof.redSocial && (
-                      <a href={prof.redSocial.startsWith('http') ? prof.redSocial : `https://${prof.redSocial}`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:text-emerald-500 font-medium flex items-center gap-3 w-fit">
+                    {prof.redSocial && typeof prof.redSocial === 'string' && (
+                      <a href={prof.redSocial.startsWith('http') ? prof.redSocial : `https://${prof.redSocial}`} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:brightness-110 font-medium flex items-center gap-3 w-fit">
                          <Link size={16} className="shrink-0 mt-0.5" /> 
                          <span className="truncate max-w-[200px]">{prof.redSocial.replace(/^https?:\/\//, '')}</span>
                       </a>
@@ -247,13 +361,22 @@ export default function Ecosistema() {
                   </div>
                </div>
              ))}
-             {directorioData.length === 0 && (
+             {filteredDirectorio.length === 0 && (
                <div className="col-span-full py-16 text-center text-tx-secondary bg-card rounded-3xl border border-bd-lines border-dashed">
                  <div className="w-20 h-20 bg-main rounded-full flex items-center justify-center mx-auto mb-4 border border-bd-lines">
                     <UserPlus size={32} className="text-accent opacity-50" />
                  </div>
-                 <h3 className="text-lg font-bold text-tx-primary mb-1">Directorio en Cero</h3>
-                 <p className="max-w-md mx-auto">Sé el primer profesional en destacar tu trabajo. Completa el registro y recibe contactos directamente a tu celular.</p>
+                 {directorioData.length === 0 ? (
+                   <>
+                     <h3 className="text-lg font-bold text-tx-primary mb-1">Directorio en Cero</h3>
+                     <p className="max-w-md mx-auto">Sé el primer profesional en destacar tu trabajo. Completa el registro y recibe contactos directamente a tu celular.</p>
+                   </>
+                 ) : (
+                   <>
+                     <h3 className="text-lg font-bold text-tx-primary mb-1">Búsqueda sin resultados</h3>
+                     <p className="max-w-md mx-auto">No hay ningún profesional o equipo que coincida con tu búsqueda de "{directorioSearch}".</p>
+                   </>
+                 )}
                </div>
              )}
           </div>
@@ -294,7 +417,7 @@ export default function Ecosistema() {
                   <label className="block text-sm font-semibold text-tx-primary mb-1">Breve Descripción (Tus fortalezas)</label>
                   <textarea maxLength={150} rows={2} value={newDirectorio.descripcion} onChange={e => setNewDirectorio({...newDirectorio, descripcion: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary resize-none" placeholder="15 años en el rubro, matrícula en GBA, experto en válvulas Hunter..."></textarea>
                </div>
-               <button type="submit" className="w-full bg-accent text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-colors shadow-sm mt-2">
+               <button type="submit" className="w-full bg-accent text-white font-bold py-3.5 rounded-xl hover:brightness-110 transition-colors shadow-sm mt-2">
                  Publicar en el Directorio
                </button>
             </form>
@@ -303,20 +426,24 @@ export default function Ecosistema() {
       ) : (
         <div className="space-y-6 animate-fade-in">
           {/* VISTA PRIVADA DEL DUEÑO: DATA MINING PARA STAKEHOLDERS */}
-          <div className="bg-gradient-to-r from-[#1a3a2a] to-[#0f2419] rounded-2xl p-6 border border-emerald-500/20 shadow-lg relative overflow-hidden">
+          <div className="bg-gradient-to-r from-[#1a3a2a] to-[#0f2419] rounded-2xl p-6 border border-accent/20 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-10">
               <PieChart size={150} />
             </div>
             <div className="relative z-10">
-              <span className="bg-emerald-500/20 text-emerald-400 text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4 inline-block border border-emerald-500/30">
+              <span className="bg-accent/20 text-accent text-xs font-extrabold uppercase tracking-widest px-3 py-1 rounded-full mb-4 inline-block border border-accent/30">
                 Módulo Monetizable
               </span>
               <h2 className="text-3xl font-black text-white mb-2 tracking-tight">Market Intelligence & Data Mining</h2>
-              <p className="text-emerald-100/70 max-w-2xl text-sm leading-relaxed mb-6">
+              <p className="text-accent/70 max-w-2xl text-sm leading-relaxed mb-6">
                 Toda la interacción del "Ecosistema Cooperativo" se filtra y acumula aquí. Alimenta estos dashboards con el comportamiento geolocalizado, uso de marcas, roturas frecuentes y preferencias del mercado laboral. Esta es la información cruda y valiosa lista para ser vendida a los fabricantes (Stakeholders).
               </p>
-              <button className="bg-emerald-500 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                Procesar Reporte Mensual PDF
+              <button 
+                onClick={handleExportDataPDF}
+                disabled={isExportingPDF}
+                className="bg-accent text-white font-bold py-3 px-6 rounded-xl hover:brightness-110 transition-all shadow-[0_0_20px_rgba(37,211,102,0.3)] hover:scale-[1.02] flex items-center gap-2"
+              >
+                {isExportingPDF ? 'Procesando...' : 'Descargar Reporte Mensual PDF'}
               </button>
             </div>
           </div>
@@ -358,7 +485,7 @@ export default function Ecosistema() {
                     <div className="flex items-center gap-3">
                       <span className="font-black text-tx-primary">{mat.amount}</span>
                       {mat.trend === 'up' ? 
-                        <span className="flex items-center text-emerald-500 text-xs font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md"><TrendingUp size={12} className="mr-1"/> Sube</span> :
+                        <span className="flex items-center text-accent text-xs font-bold bg-accent/10 px-2 py-0.5 rounded-md"><TrendingUp size={12} className="mr-1"/> Sube</span> :
                         <span className="flex items-center text-red-500 text-xs font-bold bg-red-500/10 px-2 py-0.5 rounded-md"><TrendingUp size={12} className="mr-1 rotate-180"/> Baja</span>
                       }
                     </div>

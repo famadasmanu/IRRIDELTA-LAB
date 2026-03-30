@@ -21,6 +21,8 @@ import Ecosistema from './pages/Ecosistema';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 
+import GarantiaActivar from './pages/GarantiaActivar';
+
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function App() {
@@ -62,14 +64,22 @@ export default function App() {
     );
   }
 
-  if (!user && !isGuest) {
-    return <Login onLogin={() => { }} onGuestLogin={() => setIsGuest(true)} />;
+  if (!user && !isGuest && window.location.pathname !== '/activar-garantia') {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/activar-garantia" element={<GarantiaActivar />} />
+          <Route path="*" element={<Login onLogin={() => { }} onGuestLogin={() => setIsGuest(true)} />} />
+        </Routes>
+      </BrowserRouter>
+    );
   }
 
   return (
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
+          <Route path="/activar-garantia" element={<GarantiaActivar />} />
           <Route path="/" element={<Layout onLogout={() => { setIsGuest(false); logout(); }} />}>
             <Route index element={<Navigate to="/inicio" replace />} />
             

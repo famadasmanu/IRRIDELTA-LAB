@@ -14,7 +14,6 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import Remitos from './Remitos';
 import { TrabajosOrdenesTab } from '../components/TrabajosOrdenesTab';
 
 type PersonalMember = {
@@ -1795,14 +1794,14 @@ export default function Personal() {
 
       {/* Vehicle Detail Modal */}
       {selectedVehicleDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-card rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl animate-in zoom-in-95">
-            <div className="sticky top-0 bg-card z-10 p-4 border-b border-gray-100 flex justify-between items-center">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl animate-in zoom-in-95 border border-bd-lines">
+            <div className="sticky top-0 bg-card z-10 p-4 border-b border-bd-lines flex justify-between items-center">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">{selectedVehicleDetail.name}</h3>
-                <p className="text-sm text-gray-500 font-mono mt-0.5">Patente / ID: {selectedVehicleDetail.patente}</p>
+                <h3 className="text-xl font-bold text-tx-primary">{selectedVehicleDetail.name}</h3>
+                <p className="text-sm text-tx-secondary font-mono mt-0.5">Patente / ID: {selectedVehicleDetail.patente}</p>
               </div>
-              <button onClick={() => setSelectedVehicleDetail(null)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors">
+              <button onClick={() => setSelectedVehicleDetail(null)} className="text-tx-secondary hover:text-tx-primary p-2 rounded-full hover:bg-main transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -1877,27 +1876,27 @@ export default function Personal() {
 
               {/* History */}
               <div>
-                <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <h4 className="text-lg font-bold text-tx-primary mb-4 flex items-center gap-2">
                   <FileText className="text-accent" size={20} /> Historial de Reparaciones
                 </h4>
-                <div className="bg-card border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+                <div className="bg-main/50 border border-bd-lines rounded-xl shadow-sm overflow-hidden">
                   {selectedVehicleDetail.history && selectedVehicleDetail.history.length > 0 ? (
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-bd-lines">
                       {selectedVehicleDetail.history.map((record: VehicleHistory) => (
-                        <div key={record.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div key={record.id} className="p-4 hover:bg-main transition-colors">
                           <div className="flex justify-between items-start mb-1">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-800">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-accent/20 text-accent">
                               {record.type}
                             </span>
-                            <span className="text-sm font-medium text-gray-500">{record.date}</span>
+                            <span className="text-sm font-medium text-tx-secondary">{record.date}</span>
                           </div>
-                          <p className="text-gray-900 font-medium mt-2">{record.description}</p>
-                          <p className="text-sm text-gray-500 mt-1 font-mono">Costo: {record.cost}</p>
+                          <p className="text-tx-primary font-medium mt-2">{record.description}</p>
+                          <p className="text-sm text-tx-secondary mt-1 font-mono">Costo: {record.cost}</p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-gray-500">
+                    <div className="p-8 text-center text-tx-secondary font-medium">
                       No hay registros de reparaciones.
                     </div>
                   )}

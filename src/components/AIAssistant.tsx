@@ -19,6 +19,8 @@ export function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
+  const { add: addFeedbackToDB } = useFirestoreCollection<any>('developer_feedback');
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -67,17 +69,13 @@ export function AIAssistant() {
           setCurrentStep('consultar_stock_paso1');
           setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Por favor, selecciona el cliente o sede a gestionar:' }]);
           break;
-        case 'pedir_reposicion':
-          setCurrentStep('consultar_stock_paso1');
-          setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Selecciona la obra para la cual necesitas pedir reposición:' }]);
+        case 'feedback_dev':
+          setCurrentStep('feedback_dev_paso1');
+          setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Escribe a continuación tu feedback, reporte de error o sugerencia. Va directo a nuestra base de datos segura para futuras actualizaciones.' }]);
           break;
-        case 'estado_pedido':
-          setCurrentStep('estado_pedido_view');
-          setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Aquí tienes los estados de los pedidos más recientes:' }]);
-          break;
-        case 'soporte':
-          setCurrentStep('soporte_paso1');
-          setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Entendido. ¿Qué tipo de problema estás experimentando?' }]);
+        case 'buscar_archivos':
+          setCurrentStep('buscar_archivos_paso1');
+          setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Ingresa una palabra clave o el nombre del archivo / PDF que estás buscando:' }]);
           break;
         case 'hablar_persona':
           setCurrentStep('hablar_persona_view');
@@ -149,20 +147,17 @@ export function AIAssistant() {
                 
                 {msg.isMenu && msg.sender === 'bot' && currentStep === 'inicio' && (
                   <div className="mt-4 space-y-2 flex flex-col">
-                    <button onClick={() => handleAction('consultar_stock', '📦 Consultar stock')} className="w-full text-left p-2.5 bg-accent/5 hover:bg-accent/10 border border-accent/20 rounded-xl text-accent dark:text-[#52856A] text-xs font-bold flex items-center gap-2 transition-colors">
-                      <Search size={14} /> 1. Consultar stock
+                    <button onClick={() => handleAction('consultar_stock', '📦 1. Gestionar Inventario de Obra')} className="w-full text-left p-3 bg-accent/10 hover:bg-accent/20 border border-accent/30 rounded-xl text-emerald-700 dark:text-emerald-400 text-sm font-bold flex items-center gap-2 transition-colors">
+                      <PackageCheck size={16} /> 1. Gestionar Inventario de Obra
                     </button>
-                    <button onClick={() => handleAction('pedir_reposicion', '🔄 Pedir reposición')} className="w-full text-left p-2.5 bg-accent/5 hover:bg-accent/10 border border-accent/20 rounded-xl text-accent dark:text-[#52856A] text-xs font-bold flex items-center gap-2 transition-colors">
-                      <PackageCheck size={14} /> 2. Pedir reposición
+                    <button onClick={() => handleAction('feedback_dev', '💡 2. Feedback para Desarrolladores')} className="w-full text-left p-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-700 dark:text-amber-400 text-sm font-bold flex items-center gap-2 transition-colors">
+                      <MessageSquare size={16} /> 2. Feedback para Desarrolladores
                     </button>
-                    <button onClick={() => handleAction('estado_pedido', '📋 Estado de pedido')} className="w-full text-left p-2.5 bg-accent/5 hover:bg-accent/10 border border-accent/20 rounded-xl text-accent dark:text-[#52856A] text-xs font-bold flex items-center gap-2 transition-colors">
-                      <HelpCircle size={14} /> 3. Estado de pedido
+                    <button onClick={() => handleAction('buscar_archivos', '🔍 3. Buscar PDF / Archivos')} className="w-full text-left p-3 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 rounded-xl text-purple-700 dark:text-purple-400 text-sm font-bold flex items-center gap-2 transition-colors">
+                      <Search size={16} /> 3. Buscar PDF / Archivos
                     </button>
-                    <button onClick={() => handleAction('soporte', '🛠️ Soporte técnico')} className="w-full text-left p-2.5 bg-accent/5 hover:bg-accent/10 border border-accent/20 rounded-xl text-accent dark:text-[#52856A] text-xs font-bold flex items-center gap-2 transition-colors">
-                      <Wrench size={14} /> 4. Soporte técnico
-                    </button>
-                    <button onClick={() => handleAction('hablar_persona', '📞 Hablar con una persona')} className="w-full text-left p-2.5 bg-accent/5 hover:bg-accent/10 border border-accent/20 rounded-xl text-accent dark:text-[#52856A] text-xs font-bold flex items-center gap-2 transition-colors">
-                      <Contact size={14} /> 5. Hablar con una persona
+                    <button onClick={() => handleAction('hablar_persona', '📞 4. Hablar con una persona')} className="w-full text-left p-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-700 dark:text-blue-400 text-sm font-bold flex items-center gap-2 transition-colors">
+                      <Contact size={16} /> 4. Hablar con una persona
                     </button>
                   </div>
                 )}
@@ -229,44 +224,70 @@ export function AIAssistant() {
             </div>
           )}
 
-          {/* -------------- 2. ESTADO DE PEDIDO -------------- */}
-          {currentStep === 'estado_pedido_view' && (
-            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
-              <div className="bg-card border border-bd-lines rounded-2xl p-3 shadow-sm border-l-4 border-l-amber-500">
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="text-sm font-bold text-tx-primary">Pedido #4022</h4>
-                  <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full dark:bg-amber-900/30 dark:text-amber-400">En Tránsito</span>
-                </div>
-                <p className="text-xs text-tx-secondary mb-1">25x Bentonita, 1x Bomba sumergible</p>
-                <p className="text-[10px] font-medium text-tx-secondary opacity-80">Destino: Barrio Nordelta</p>
-              </div>
-              <div className="bg-card border border-bd-lines rounded-2xl p-3 shadow-sm border-l-4 border-l-emerald-500">
-                <div className="flex justify-between items-start mb-1">
-                  <h4 className="text-sm font-bold text-tx-primary">Pedido #4019</h4>
-                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full dark:bg-emerald-900/30 dark:text-emerald-400">Entregado</span>
-                </div>
-                <p className="text-xs text-tx-secondary mb-1">Mechas Perforación 10mm</p>
-                <p className="text-[10px] font-medium text-tx-secondary opacity-80">Hace 2 días • Central Escobar</p>
-              </div>
+          {/* -------------- LA VISTA 4. (HABLAR) SE ENCUENTRA MÁS ABAJO -------------- */}
+
+          {/* -------------- FEEDBACK DEV -------------- */}
+          {currentStep === 'feedback_dev_paso1' && (
+            <div className="bg-card border border-bd-lines rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+              <textarea 
+                className="w-full p-3 bg-main border border-bd-lines rounded-xl text-sm font-medium focus:outline-none focus:border-accent text-tx-primary resize-none placeholder-tx-secondary/50 transition-colors"
+                rows={4}
+                placeholder="Escribe aquí tu comentario, error o idea de mejora..."
+                id="feedback-input"
+              />
+              <button 
+                className="w-full mt-3 p-3 bg-amber-500 text-white font-bold text-sm rounded-xl hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                onClick={async () => {
+                   const val = (document.getElementById('feedback-input') as HTMLTextAreaElement)?.value || '';
+                   if (val.trim()) {
+                     setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: val }]);
+                     await addFeedbackToDB({ text: val, role: window.localStorage.getItem('user_role') || 'Unknown', fecha: new Date().toISOString() });
+                     setTimeout(() => {
+                       setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: '✅ Feedback incautado de forma segura en la base de datos de los desarrolladores. ¡Muchas gracias por tu aporte!' }]);
+                       setTimeout(resetToMenu, 1500);
+                     }, 600);
+                   }
+                }}
+              >
+                <Send size={16} /> Enviar Sugerencia
+              </button>
             </div>
           )}
 
-          {/* -------------- 4. SOPORTE TÉCNICO -------------- */}
-          {currentStep === 'soporte_paso1' && (
-            <div className="bg-card border border-bd-lines rounded-2xl p-2 shadow-sm animate-in fade-in slide-in-from-bottom-2 flex flex-col gap-2">
-              <button onClick={() => { setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Se ha notificado al mecánico de turno. Tu prioridad es ALTA. En breve te contactarán.' }]); resetToMenu(); }} className="w-full text-left p-3 hover:bg-main rounded-xl border border-transparent hover:border-bd-lines transition-all">
-                <p className="text-sm font-bold text-red-500 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"/> Falla crítica de Maquinaria</p>
-                <p className="text-[10px] text-tx-secondary mt-1 ml-4">Detiene la obra o perforación por completo.</p>
-              </button>
-              <div className="h-[1px] bg-bd-lines w-full" />
-              <button onClick={() => { setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Ticket "Problema de App" generado. El soporte de sistemas lo revisará.' }]); resetToMenu(); }} className="w-full text-left p-3 hover:bg-main rounded-xl border border-transparent hover:border-bd-lines transition-all">
-                <p className="text-sm font-bold text-tx-primary ml-4">Problema con la Aplicación</p>
-                <p className="text-[10px] text-tx-secondary mt-1 ml-4">No puedo ver datos o error del sistema.</p>
-              </button>
-              <div className="h-[1px] bg-bd-lines w-full" />
-               <button onClick={() => { setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Registrado. ¿Deseas detallar algo más? Envialo vía WhatsApp con el botón Contacto Directo.' }]); resetToMenu(); }} className="w-full text-left p-3 hover:bg-main rounded-xl border border-transparent hover:border-bd-lines transition-all">
-                <p className="text-sm font-bold text-tx-primary ml-4">Duda sobre procedimientos</p>
-                <p className="text-[10px] text-tx-secondary mt-1 ml-4">Otras consultas no urgentes.</p>
+          {/* -------------- BUSCADOR ARCHIVOS -------------- */}
+          {currentStep === 'buscar_archivos_paso1' && (
+            <div className="bg-card border border-bd-lines rounded-2xl p-4 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+              <input 
+                type="text"
+                className="w-full p-3 bg-main border border-bd-lines rounded-xl text-sm font-medium focus:outline-none focus:border-purple-500 text-tx-primary placeholder-tx-secondary/50 transition-colors"
+                placeholder="Ej: Plano Nordelta, Factura LED..."
+                id="search-archivos-input"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    document.getElementById('btn-search-archivos')?.click();
+                  }
+                }}
+              />
+              <button 
+                id="btn-search-archivos"
+                className="w-full mt-3 p-3 bg-purple-600 text-white font-bold text-sm rounded-xl hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                onClick={() => {
+                   const val = (document.getElementById('search-archivos-input') as HTMLInputElement)?.value || '';
+                   if (val.trim()) {
+                     setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: `Buscando informe / archivo: ${val}` }]);
+                     setTimeout(() => {
+                       setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Redirigiendo a tu bóveda de Archivos...' }]);
+                       localStorage.setItem('archivos_search_query', val);
+                       setTimeout(() => {
+                         navigate('/archivos');
+                         setIsOpen(false);
+                         setTimeout(resetToMenu, 500);
+                       }, 1000);
+                     }, 400);
+                   }
+                }}
+              >
+                <Search size={16} /> Buscar Inteligente
               </button>
             </div>
           )}

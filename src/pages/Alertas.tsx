@@ -12,6 +12,7 @@ export default function Alertas() {
  const { data: maquinarias } = useFirestoreCollection<any>('inventario_maquinas');
  const { data: aditivos } = useFirestoreCollection<any>('inventario_aditivos');
  const { data: generales } = useFirestoreCollection<any>('inventario_generales');
+ const { data: clientesData } = useFirestoreCollection<any>('clientes');
  const [localDismissed, setLocalDismissed] = useState<string[]>(() => {
  try { 
  const d = JSON.parse(localStorage.getItem('alertasDismissed') || '[]'); 
@@ -39,6 +40,34 @@ export default function Alertas() {
 
  const displayAlerts = useMemo(() => {
     const inventoryAlerts: any[] = [];
+    const maintenanceAlerts: any[] = [];
+    
+    // Generador de Leads: Mantenimiento de Invierno
+    const thresholdDate = new Date();
+    thresholdDate.setMonth(thresholdDate.getMonth() - 5); // 5 meses de antigüedad
+    
+    clientesData.forEach((cliente: any) => {
+      if (cliente.status === 'FINALIZADO' && cliente.fechaFinalizacion) {
+         const finishDate = new Date(cliente.fechaFinalizacion);
+         if (finishDate < thresholdDate) {
+             const diffMonths = Math.floor((new Date().getTime() - finishDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+             const phoneOnlyDigits = cliente.phone ? cliente.phone.replace(/\D/g, '') : '';
+             const whatsappMsg = `Hola ${cliente.name}, ¿cómo estás? Hace ${diffMonths} meses armamos tu riego. Con la llegada de los fríos, tenemos la agenda abierta para hacer el service anti-heladas y el mantenimiento de invierno. ¿Querés que te reservemos un lugar?`;
+             
+             maintenanceAlerts.push({
+               id: `auto-maint-${cliente.id}`,
+               tipo: 'evento',
+               categoria: 'Mantenimiento',
+               nivel: 'atencion',
+               titulo: `Service de Invierno: ${cliente.name}`,
+               contexto: `La obra fue finalizada en ${cliente.fechaFinalizacion.split('-').reverse().join('/')} (Hace ${diffMonths} meses). Oportunidad de facturar mantenimiento preventivo.`,
+               fecha: 'Automático',
+               whatsappMsg,
+               whatsappPhone: phoneOnlyDigits
+             });
+         }
+      }
+    });
    
     aditivos.forEach((ad: any) => {
       let expired = false;
@@ -118,8 +147,8 @@ export default function Alertas() {
     });
 
     const baseAlertas = alertasRaw;
-    return [...baseAlertas, ...inventoryAlerts];
-  }, [alertasRaw, maquinarias, aditivos, generales]);
+    return [...baseAlertas, ...inventoryAlerts, ...maintenanceAlerts];
+  }, [alertasRaw, maquinarias, aditivos, generales, clientesData]);
 
  const alertasDataState = displayAlerts.filter((a: any) => !localDismissed.includes(a.id));
  const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -741,11 +770,11 @@ export default function Alertas() {
  )}
  {alerta.whatsappMsg && (
  <a
- href={`https://wa.me/?text=${encodeURIComponent(alerta.whatsappMsg)}`}
+ href={`https://wa.me/${alerta.whatsappPhone || ''}?text=${encodeURIComponent(alerta.whatsappMsg)}`}
  target="_blank"
  rel="noopener noreferrer"
  className="w-full bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] dark:text-[#25D366] border border-[#25D366]/30 px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5"
- title="Pedir por WhatsApp"
+ title="Contactar Lead por WhatsApp"
  >
  <MessageCircle size={16} /> WhatsApp
  </a>

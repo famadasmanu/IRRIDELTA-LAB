@@ -1,13 +1,56 @@
 import { useState, useEffect } from 'react';
-import { Calendar, RefreshCw, LogOut, Loader2, Users, FileText, Package } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
+import { Calendar, RefreshCw, LogOut, Loader2, Users, FileText, Package, Briefcase } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 
 export default function ActividadReciente() {
- const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
- const [isCalendarLoading, setIsCalendarLoading] = useState(false);
- const [isCalendarAuthenticated, setIsCalendarAuthenticated] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [isCalendarAuthenticated, setIsCalendarAuthenticated] = useState(false);
+
+  const { data: clientesRaw } = useFirestoreCollection<any>('clientes');
+  const { data: trabajosRaw } = useFirestoreCollection<any>('trabajos_portfolio');
+  const { data: garantiasRaw } = useFirestoreCollection<any>('garantias_y_maquinas');
+
+  const getRealActivities = () => {
+    const activities: any[] = [];
+    
+    (clientesRaw || []).forEach((c: any) => {
+      activities.push({
+        icon: Users,
+        text: `Nuevo cliente registrado: ${c.nombre || c.name || 'Desconocido'}`,
+        rawDate: c.createdAt || c.fecha || c.id, 
+        time: c.createdAt ? new Date(c.createdAt).toLocaleDateString('es-AR') : 'Recientemente'
+      });
+    });
+
+    (trabajosRaw || []).forEach((t: any) => {
+      activities.push({
+        icon: Briefcase,
+        text: `Obra ${t.estado || 'Activa'}: ${t.titulo || t.cliente || 'Sin título'}`,
+        rawDate: t.createdAt || t.fechaInicio || t.fecha || t.id,
+        time: t.createdAt ? new Date(t.createdAt).toLocaleDateString('es-AR') : t.fecha || 'Recientemente'
+      });
+    });
+
+    (garantiasRaw || []).forEach((g: any) => {
+      activities.push({
+        icon: FileText,
+        text: `Garantía Activada: ${g.nombre || 'Cliente'}`,
+        rawDate: g.fechaActivacion || g.id,
+        time: g.fechaActivacion ? new Date(g.fechaActivacion).toLocaleDateString('es-AR') : 'Recientemente'
+      });
+    });
+
+    // Sort descending by rawDate string (timestamps are lexicographically sortable if ISO, or we fallback to IDs which contain timestamps often)
+    activities.sort((a, b) => String(b.rawDate).localeCompare(String(a.rawDate)));
+
+    return activities.slice(0, 4);
+  };
+
+  const recentActivitiesList = getRealActivities();
 
  useEffect(() => {
  checkAuthStatus();
@@ -182,23 +225,24 @@ export default function ActividadReciente() {
  <div className="text-center py-8 text-tx-secondary">
  No hay eventos próximos en tu calendario.
  </div>
- ) : (
- // Default mock activity if not authenticated
- [
- { icon: Users, text: "Nuevo cliente registrado: Familia Pérez", time: "Hace 2 horas" },
- { icon: FileText, text: "Presupuesto #1042 aprobado", time: "Hace 4 horas" },
- { icon: Package, text: "Recepción de materiales en Obra San Isidro", time: "Ayer" },
- ].map((act, i) => (
+ ) : recentActivitiesList.length > 0 ? (
+ // Mostrar actividad real de colecciones Firebase
+ recentActivitiesList.map((act, i) => (
  <div key={i} className="flex items-start gap-4 relative z-10">
- <div className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+ <div className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center flex-shrink-0 shadow-sm border border-emerald-500/30">
  <act.icon size={14} />
  </div>
  <div className="pt-1">
- <p className="font-medium text-tx-primary text-sm md:text-base">{act.text}</p>
- <p className="text-xs text-tx-secondary mt-0.5">{act.time}</p>
+ <p className="font-medium text-tx-primary text-sm md:text-base leading-tight">{act.text}</p>
+ <p className="text-xs text-tx-secondary mt-1">{act.time}</p>
  </div>
  </div>
  ))
+ ) : (
+ <div className="text-center py-8 text-tx-secondary text-sm">
+ <Package size={24} className="mx-auto mb-2 opacity-30" />
+ No hay eventos recientes en el sistema.
+ </div>
  )}
  </div>
  </div>

@@ -24,6 +24,7 @@ import {
   Activity
   } from 'lucide-react';
 import { MagicLogo } from './MagicLogo';
+import { AIAssistant } from './AIAssistant';
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
@@ -201,6 +202,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
       </div>
 
 
+    <AIAssistant />
     </div>
   );
 }

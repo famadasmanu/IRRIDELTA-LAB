@@ -293,7 +293,10 @@ export default function Clientes() {
           'text-tx-secondary bg-main';
 
       const id = editingClient.id;
-      const clientToUpdate = { ...editingClient, statusColor, isFinished: editingClient.status === 'FINALIZADO' };
+      const clientToUpdate: any = { ...editingClient, statusColor, isFinished: editingClient.status === 'FINALIZADO' };
+      if (editingClient.status === 'FINALIZADO' && !editingClient.fechaFinalizacion) {
+          clientToUpdate.fechaFinalizacion = new Date().toISOString().split('T')[0];
+      }
       delete clientToUpdate.id;
 
       await updateClientInDB(id, clientToUpdate);
@@ -369,18 +372,18 @@ export default function Clientes() {
                   key={client.id}
                   onClick={() => setSelectedClientMap(client)}
                   className={`group relative p-3 rounded-xl border cursor-pointer transition-all duration-300 overflow-hidden ${isActive
-                    ? 'border-emerald-500/30 bg-emerald-500/5 shadow-[0_8px_30px_rgba(16,185,129,0.15)]'
-                    : 'border-transparent hover:border-emerald-500/30 bg-main/50 hover:bg-card hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] hover:-translate-y-0.5'
+                    ? 'border-accent/40 bg-accent/5 shadow-[0_8px_30px_rgba(37,211,102,0.15)]'
+                    : 'border-transparent hover:border-accent/30 bg-main/50 hover:bg-card hover:shadow-[0_8px_30px_rgba(37,211,102,0.15)] hover:-translate-y-0.5'
                     }`}
                 >
-                  <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-[2px_0_15px_rgba(16,185,129,0.5)] transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
+                  <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-accent to-[#15803d] shadow-[2px_0_15px_rgba(37,211,102,0.5)] transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
                   <div className="flex justify-between items-center mb-1 gap-2 pl-2">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div
-                        className="size-8 rounded-full bg-cover bg-center border border-bd-lines shrink-0 shadow-sm"
+                        className="size-10 rounded-full bg-cover bg-center border border-bd-lines shrink-0 shadow-sm"
                         style={{ backgroundImage: `url('${client.image}')` }}
                       />
-                      <h3 className={`font-bold text-sm line-clamp-1 transition-colors ${isActive ? 'text-emerald-400' : 'text-tx-primary group-hover:text-emerald-400'}`}>{client.name}</h3>
+                      <h3 className={`font-black text-lg tracking-tight line-clamp-1 transition-colors ${isActive ? 'text-accent' : 'text-tx-primary group-hover:text-accent'}`}>{client.name}</h3>
                     </div>
                   </div>
                   <p className="text-xs text-tx-secondary line-clamp-1 flex items-center gap-1.5 mt-2 pl-2"><MapPin size={12} />{client.location}</p>
@@ -410,7 +413,7 @@ export default function Clientes() {
                 // Crear objeto de ícono para Marker tradicional si hay imagen redonda
                 const markerIcon = client.image ? {
                   url: client.image,
-                  scaledSize: window.google ? new window.google.maps.Size(44, 44) : null,
+                  scaledSize: window?.google?.maps?.Size ? new window.google.maps.Size(44, 44) : null,
                 } : undefined;
 
                 return client.lat && client.lng && (
@@ -740,7 +743,7 @@ export default function Clientes() {
                 const currentImage = editingClient?.image || newClient?.image;
                 const activeIcon = currentImage ? {
                   url: currentImage,
-                  scaledSize: window?.google ? new window.google.maps.Size(44, 44) : null,
+                  scaledSize: window?.google?.maps?.Size ? new window.google.maps.Size(44, 44) : null,
                 } : undefined;
 
                 return (

@@ -1122,6 +1122,22 @@ export default function Inventario() {
                       className="w-16 px-2 py-1 text-sm border border-bd-lines rounded-md focus:ring-1 focus:ring-accent outline-none text-center"
                     />
                     <button
+                      onClick={() => {
+                        handleAddToPedido({
+                          id: `check_${item.id}`,
+                          name: item.text,
+                          nombre: item.text,
+                          cantidadPedido: item.qty || 1,
+                          cantidad: item.qty || 1,
+                          clienteNombre: `Obra: ${selectedProjectChecklist?.name || 'Desconocida'}`
+                        });
+                      }}
+                      className="p-1.5 text-tx-secondary hover:text-accent transition-colors"
+                      title="Añadir ítem al carrito (Pedido)"
+                    >
+                      <ShoppingCart size={16} />
+                    </button>
+                    <button
                       onClick={async () => {
                         const updatedProject = {
                           ...selectedProjectChecklist,
@@ -1134,6 +1150,7 @@ export default function Inventario() {
                         setSelectedProjectChecklist(updatedProject);
                       }}
                       className="p-1.5 text-tx-secondary hover:text-red-500 transition-colors"
+                      title="Eliminar de la checklist"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -1145,7 +1162,45 @@ export default function Inventario() {
               )}
             </div>
 
-            <div className="pt-4 flex justify-end gap-3 border-t border-bd-lines">
+            <div className="pt-4 flex justify-between items-center gap-3 border-t border-bd-lines">
+              <button
+                onClick={() => {
+                  const unchecked = selectedProjectChecklist.checklist?.filter((i: any) => !i.isChecked) || [];
+                  if (unchecked.length === 0) {
+                     alert("No hay elementos pendientes en la checklist para pedir.");
+                     return;
+                  }
+                  
+                  const newOrders = unchecked.map((item: any) => ({
+                    id: `check_${item.id}`,
+                    name: item.text,
+                    nombre: item.text,
+                    cantidadPedido: item.qty || 1,
+                    cantidad: item.qty || 1,
+                    clienteNombre: `Obra: ${selectedProjectChecklist?.name || 'Desconocida'}`
+                  }));
+                  
+                  setPedidoItems(prev => {
+                     const updated = [...prev];
+                     for (const order of newOrders) {
+                        const existing = updated.find(p => p.id === order.id);
+                        if (existing) {
+                           existing.cantidadPedido = (existing.cantidadPedido || 1) + order.cantidadPedido;
+                        } else {
+                           updated.push(order);
+                        }
+                     }
+                     return updated;
+                  });
+                  setSelectedProjectChecklist(null);
+                  setIsPedidoModalOpen(true);
+                }}
+                className="px-4 py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/30 rounded-lg hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-2"
+                title="Suma automáticamente lo que no está tachado al Pedido Global"
+              >
+                <ShoppingCart size={18} />
+                Llenar automáticamente al Carrito
+              </button>
               <button
                 onClick={() => setSelectedProjectChecklist(null)}
                 className="px-4 py-2 bg-main text-tx-primary font-medium rounded-lg hover:bg-slate-200 transition-colors"

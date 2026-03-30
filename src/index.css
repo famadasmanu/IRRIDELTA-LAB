@@ -12,8 +12,8 @@
   --color-card: rgba(255, 255, 255, 0.9); /* Más opaco para que se vean los bordes y contraste */
   --color-tx-primary: #111827;
   --color-tx-secondary: #6B7280;
-  --color-bd-lines: rgba(47, 125, 107, 0.25); /* Bordes sutilmente verdes oscuros para delimitar bien bajo el sol (Basado en #2F7D6B) */
-  --color-accent: #2F7D6B;
+  --color-bd-lines: rgba(37, 211, 102, 0.25); /* Bordes sutilmente verdes radiactivos */
+  --color-accent: #25D366;
 
   --color-white: #ffffff;
   --color-black: #000000;
@@ -47,7 +47,7 @@
     --color-tx-primary: #F1F5F9;
     --color-tx-secondary: #94A3B8;
     --color-bd-lines: rgba(255, 255, 255, 0.05);
-    --color-accent: #10b981; /* Verde esmeralda brillante para dark mode */
+    --color-accent: #25D366; /* Verde radiactivo para dark mode */
   }
 }
 
