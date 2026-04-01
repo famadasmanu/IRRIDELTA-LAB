@@ -21,13 +21,15 @@ import {
   Moon,
   Sun,
   Wifi,
+  WifiOff,
   Activity
   } from 'lucide-react';
-import { MagicLogo } from './MagicLogo';
+import { Logo } from './Logo';
 import { AIAssistant } from './AIAssistant';
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
+import { useAlerts } from '../hooks/useAlerts';
 
 export default function Layout({ onLogout }: { onLogout: () => void }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -48,6 +50,18 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
     } catch {}
   }, [isDarkMode]);
 
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const [userRole] = useState(() => {
     try {
       const item = window.localStorage.getItem('user_role');
@@ -59,13 +73,12 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
 
   const { data: clientesData } = useFirestoreCollection<any>('clientes_data');
   const { data: portfolioData } = useFirestoreCollection<any>('trabajos_portfolio');
-  const { data: alertasData } = useFirestoreCollection<any>('notificaciones_data');
+  const { unreadCount } = useAlerts();
 
   // Compute Badges
   const activeAccountsCount = clientesData.filter(c => c.status === 'EN PROCESO').length;
   const activeProjectsCount = portfolioData.filter(p => p.estado === 'En Proceso').length;
   const totalCuentasYProyectos = activeAccountsCount + activeProjectsCount;
-  const unreadAlerts = alertasData.length > 0 ? alertasData.filter(a => !a.leida).length : 3;
 
   const menuItems = [
     { path: '/inicio', icon: LayoutDashboard, label: 'Inicio' },
@@ -77,7 +90,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
     { path: '/personal', icon: UserCheck, label: 'Equipo' },
     { path: '/proveedor', icon: Truck, label: 'Proveedor' },
     { path: '/finanzas', icon: DollarSign, label: 'Finanzas' },
-    { path: '/notificaciones', icon: Bell, label: 'Notificaciones', badge: unreadAlerts > 0 ? unreadAlerts : undefined },
+    { path: '/notificaciones', icon: Bell, label: 'Notificaciones', badge: unreadCount > 0 ? unreadCount : undefined },
     { path: '/configuracion', icon: Settings, label: 'Configuración' },
   ];
 
@@ -114,18 +127,18 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed md:sticky top-0 left-0 z-50 h-screen w-64 bg-[#1E2A28] dark:bg-slate-900 text-white flex flex-col transition-transform duration-300 ease-in-out border-r border-[#E3E8E6] dark:border-white/5",
+        "fixed md:sticky top-0 left-0 z-50 h-screen w-[340px] bg-[#1E2A28] dark:bg-slate-900 text-white flex flex-col transition-transform duration-300 ease-in-out border-r border-[#E3E8E6] dark:border-white/5",
         isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
-        <div className="py-8 flex items-center justify-center relative border-b border-white/10 px-4 min-h-[140px]">
+        <div className="py-8 md:py-10 flex items-center justify-center relative border-b border-white/10 px-4">
           <button
             onClick={closeMobileMenu}
             className="md:hidden absolute left-2 top-2 p-1 hover:bg-white/10 rounded text-white/60"
           >
             <X size={16} />
           </button>
-          <div className="w-full h-full flex flex-col items-center justify-center pt-2 pb-4">
-            <MagicLogo />
+          <div className="w-full flex items-center justify-center mt-3 mb-3 md:mt-5 md:mb-5 px-1">
+            <Logo className="h-auto w-[96%] max-w-[290px] md:max-w-[320px] object-contain drop-shadow-md hover:scale-[1.02] transition-transform" />
           </div>
         </div>
 
@@ -138,15 +151,15 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
                 to={item.path}
                 onClick={closeMobileMenu}
                 className={cn(
-                  "flex items-center justify-between px-3 py-3 rounded-lg transition-all min-h-[44px]",
+                  "flex items-center justify-between px-4 py-[14px] rounded-xl transition-all min-h-[52px]",
                   isActive
                     ? "bg-gradient-to-br from-[#10b981] to-[#059669] shadow-[0_0_15px_rgba(16,185,129,0.4)] text-white font-medium border border-[#10b981]/50"
                     : "text-white/80 hover:bg-[#1E2A28] hover:text-white dark:text-white dark:hover:bg-[#2d4a3a]"
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <item.icon size={24} strokeWidth={1.5} />
-                  <span className="font-medium">{item.label}</span>
+                <div className="flex items-center gap-4">
+                  <item.icon size={28} strokeWidth={1.5} />
+                  <span className="font-semibold text-[17px] tracking-wide">{item.label}</span>
                 </div>
                 {item.badge && (
                   <span className={cn(
@@ -164,17 +177,17 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
         <div className="p-3 border-t border-white/10 flex flex-col gap-2">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors min-h-[44px] w-full text-white/80 hover:bg-[#1E2A28] hover:text-white dark:text-white dark:hover:bg-[#2d4a3a]"
+            className="flex items-center gap-4 px-4 py-4 rounded-xl transition-colors min-h-[52px] w-full text-white/80 hover:bg-[#1E2A28] hover:text-white dark:text-white dark:hover:bg-[#2d4a3a]"
           >
-            {isDarkMode ? <Sun size={24} strokeWidth={1.5} /> : <Moon size={24} strokeWidth={1.5} />}
-            <span className="font-medium">{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
+            {isDarkMode ? <Sun size={28} strokeWidth={1.5} /> : <Moon size={28} strokeWidth={1.5} />}
+            <span className="font-semibold text-[17px] tracking-wide">{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
           </button>
           <button
             onClick={onLogout}
-            className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors min-h-[44px] w-full text-red-300 hover:bg-red-500/10"
+            className="flex items-center gap-4 px-4 py-4 rounded-xl transition-colors min-h-[52px] w-full text-red-300 hover:bg-red-500/10"
           >
-            <LogOut size={24} strokeWidth={1.5} />
-            <span className="font-medium">Cerrar sesión</span>
+            <LogOut size={28} strokeWidth={1.5} />
+            <span className="font-semibold text-[17px] tracking-wide">Cerrar sesión</span>
           </button>
         </div>
       </aside>

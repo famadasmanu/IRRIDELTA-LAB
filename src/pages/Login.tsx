@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {   Leaf, Mail, Lock, Eye, EyeOff, Fingerprint, HelpCircle, UserPlus, AlertCircle   } from 'lucide-react';
-import { MagicLogo } from '../components/MagicLogo';
+import { Logo } from '../components/Logo';
 
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -108,8 +108,8 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  
  <div className="w-full max-w-md relative z-10 flex flex-col items-center justify-center py-4">
  {/* Logo outside the card, on the dark background */}
- <div className="flex flex-col items-center mb-4 md:mb-8 w-full">
- <MagicLogo scale={1} className="drop-shadow-2xl max-w-[220px] h-[78px] md:max-w-[280px] md:h-[100px]" />
+ <div className="flex flex-col items-center mb-8 md:mb-14 w-full mt-8 md:mt-12">
+ <Logo className="h-[105px] md:h-[135px] drop-shadow-xl w-auto max-w-[95vw] object-contain" />
  </div>
 
  {/* Main Login Card */}

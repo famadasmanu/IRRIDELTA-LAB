@@ -14,7 +14,6 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import { TrabajosOrdenesTab } from '../components/TrabajosOrdenesTab';
 
 type PersonalMember = {
   id: string;
@@ -95,7 +94,7 @@ export type UpcomingService = {
 
 // Removed old initial hardcoded data blocks
 export default function Personal() {
-  const [view, setView] = useState<'equipo' | 'reasignar' | 'asistencia' | 'historial' | 'vehiculos' | 'profesionales' | 'remitos' | 'ordenes'>('equipo');
+  const [view, setView] = useState<'equipo' | 'vehiculos'>('equipo');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<'todos' | 'interno' | 'externo'>('todos');
   // Firestore Collections
   const { data: personalRaw, add: addPersonal, update: updatePersonal, remove: removePersonal } = useFirestoreCollection<PersonalMember>('personalData');
@@ -121,6 +120,7 @@ export default function Personal() {
   const { data: materialesData, update: updateMaterial } = useFirestoreCollection<any>('inventario_generales');
   const { data: projectsData, update: updateProject } = useFirestoreCollection<any>('projects');
   const { data: trabajosData } = useFirestoreCollection<any>('trabajos_portfolio');
+  const { data: ordenesData } = useFirestoreCollection<any>('trabajos_ordenes');
 
   const [selectedMember, setSelectedMember] = useState<PersonalMember | null>(null);
   const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
@@ -143,7 +143,7 @@ export default function Personal() {
   const [editEmployeeStatus, setEditEmployeeStatus] = useState<'activo' | 'descanso' | 'inactivo'>('activo');
   const [editEmployeeLocation, setEditEmployeeLocation] = useState('');
 
-  const [isHRModalOpen, setIsHRModalOpen] = useState(false);
+  const [employeeTab, setEmployeeTab] = useState<'ficha' | 'rh'>('ficha');
   
 
 
@@ -419,12 +419,8 @@ export default function Personal() {
     setSelectedEmployeeDetail(member);
     setEditLocationValue(member.location || '');
     setEditAttendanceAlert(member.attendanceAlert || 90);
+    setEmployeeTab('ficha');
     setIsEmployeeDetailModalOpen(true);
-  };
-
-  const handleOpenHRDetail = (member: PersonalMember) => {
-    setSelectedEmployeeDetail(member);
-    setIsHRModalOpen(true);
   };
 
   const handleSaveEmployeeDetail = () => {
@@ -824,452 +820,7 @@ export default function Personal() {
     }
   };
 
-  const handleExportFullPDF = async () => {
-    setIsExporting(true);
-    showToast('Generando reporte PDF...');
 
-    try {
-      const printContent = document.createElement('div');
-      printContent.style.position = 'absolute';
-      printContent.style.left = '-9999px';
-      printContent.style.top = '0';
-      printContent.style.width = '800px';
-      printContent.style.backgroundColor = '#ffffff';
-      printContent.style.padding = '40px';
-
-      let contentHtml = `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-          <h1 style="color: #059669; margin-bottom: 5px;">Reporte General de Personal</h1>
-          <p style="color: #666; margin-bottom: 20px;">Argent Software - Fecha: ${new Date().toLocaleDateString()}</p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-            <thead>
-              <tr style="background-color: #059669; color: white;">
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Nombre</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Rol</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Estado</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Ubicación</th>
-                <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Asistencia</th>
-              </tr>
-            </thead>
-            <tbody>
-      `;
-
-      personalData.forEach((member: PersonalMember) => {
-        contentHtml += `
-          <tr style="background-color: white;">
-            <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">${member.name}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${member.role}</td>
-            <td style="padding: 10px; border: 1px solid #ddd; text-transform: capitalize;">${member.status}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${member.location || 'N/A'}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${member.presencialidad || '0%'}</td>
-          </tr>
-        `;
-      });
-
-      contentHtml += `
-            </tbody>
-          </table>
-          <div style="margin-top: 30px; font-size: 12px; color: #999; text-align: center;">
-            Documento generado automáticamente por sistema Argent Software
-          </div>
-        </div>
-      `;
-
-      printContent.innerHTML = contentHtml;
-      document.body.appendChild(printContent);
-
-      const canvas = await html2canvas(printContent, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
-
-      document.body.removeChild(printContent);
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Reporte_Personal_${new Date().toISOString().split('T')[0]}.pdf`);
-
-      showToast('PDF exportado correctamente');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      showToast('Error al generar el PDF');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportExcel = () => {
-    const headers = ['ID', 'Nombre', 'Rol', 'Categoria', 'Estado', 'Ubicacion', 'Presencialidad', 'Adelantos'];
-    const rows = personalData.map((m: PersonalMember) => [
-      m.id,
-      m.name,
-      m.role,
-      m.category,
-      m.status,
-      `"${m.location || ''}"`,
-      m.presencialidad || '',
-      `"${m.adelantos || ''}"`
-    ].join(','));
-    
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Personal_Argent Software_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Planilla CSV exportada');
-  };
-
-  if (view === 'asistencia') {
-    return (
-      <div className="flex flex-col min-h-[80vh] relative">
-        {/* Status Card */}
-        <div className="mt-2">
-          <div className="bg-card rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2">
-            <span className="text-gray-500 text-sm font-medium uppercase tracking-wider">Estado Actual</span>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-              <h2 className="text-2xl font-extrabold text-gray-400">Offline</h2>
-            </div>
-            <p className="text-xs text-gray-400 text-center max-w-[200px]">Debes estar en el sitio para realizar el Check-In.</p>
-          </div>
-        </div>
-
-        {/* Main Action Area */}
-        <div className="flex-1 flex flex-col items-center justify-center py-8 relative">
-          <div className="absolute w-64 h-64 rounded-full border border-bd-lines"></div>
-          <div className="absolute w-52 h-52 rounded-full border border-accent/20"></div>
-          <button
-            onClick={() => {
-              showToast('Check-In realizado con éxito');
-              setTimeout(() => setView('equipo'), 1500);
-            }}
-            className="relative w-40 h-40 rounded-full bg-accent shadow-xl shadow-accent/30 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform z-10 group"
-          >
-            <MapPin className="text-white text-4xl group-hover:scale-110 transition-transform" size={40} />
-            <span className="text-white font-bold text-lg tracking-wide">Check-In</span>
-          </button>
-        </div>
-
-        {/* Location Info */}
-        <div className="pb-6">
-          <div className="bg-card rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-            <div className="relative h-32 w-full bg-gray-200">
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                <div className="bg-accent/20 w-16 h-16 rounded-full flex items-center justify-center border border-accent">
-                  <div className="w-3 h-3 bg-accent rounded-full ring-2 ring-white"></div>
-                </div>
-              </div>
-              <div className="absolute bottom-2 right-2 bg-card px-2 py-1 rounded text-[10px] font-bold shadow-sm text-gray-500">Google Maps</div>
-            </div>
-            <div className="p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 font-medium mb-0.5">Ubicación Actual</p>
-                <h3 className="text-gray-900 font-bold text-base flex items-center gap-1">
-                  <MapPin className="text-accent" size={16} />
-                  Cerca de Obra Olivos
-                </h3>
-              </div>
-              <div className="bg-green-100 text-accent text-xs font-bold px-3 py-1.5 rounded-full">
-                ~50m
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'historial') {
-    return (
-      <div className="flex flex-col min-h-[80vh] bg-transparent -mx-4 -mt-4 px-4 pt-4">
-        {/* Header Section */}
-        <header className="sticky top-0 z-20 bg-background-light/95 backdrop-blur-sm border-b border-gray-200 -mx-4 px-4 py-3 mb-4">
-          <div className="flex items-center justify-between">
-            <button onClick={() => setView('asistencia')} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-200 transition-colors">
-              <ArrowLeft className="text-gray-900" size={24} />
-            </button>
-            <h1 className="text-lg font-bold text-gray-900">Historial de Asistencia</h1>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-200 transition-colors">
-              <Search className="text-gray-900" size={24} />
-            </button>
-          </div>
-
-          {/* Scrollable Filters */}
-          <div className="flex gap-2 mt-4 overflow-x-auto hide-scrollbar pb-2">
-            <button className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-accent text-white px-3 text-sm font-medium shadow-sm transition-transform active:scale-95">
-              <Calendar size={18} /> Esta Semana <ChevronDown size={18} />
-            </button>
-            <button className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-card border border-gray-200 text-gray-700 px-3 text-sm font-medium shadow-sm transition-colors hover:bg-gray-50">
-              <User size={18} /> Todos <ChevronDown size={18} />
-            </button>
-            <button className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-card border border-gray-200 text-gray-700 px-3 text-sm font-medium shadow-sm transition-colors hover:bg-gray-50">
-              <TreePine size={18} /> Proyectos <ChevronDown size={18} />
-            </button>
-            <button className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-card border border-gray-200 text-gray-700 px-3 text-sm font-medium shadow-sm transition-colors hover:bg-gray-50">
-              <Filter size={18} />
-            </button>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="flex-1 space-y-6 pb-24">
-          {/* Summary Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-accent p-4 text-white shadow-lg shadow-accent/20">
-              <div className="flex items-center gap-2 mb-2 opacity-90">
-                <Clock size={20} />
-                <span className="text-xs font-semibold uppercase tracking-wider">Total Horas</span>
-              </div>
-              <div className="text-3xl font-bold">42.5h</div>
-              <div className="text-xs opacity-80 mt-1">+2.5h vs semana pasada</div>
-            </div>
-            <div className="rounded-xl bg-card border border-gray-200 p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-2 text-gray-500">
-                <CheckCircle size={20} />
-                <span className="text-xs font-semibold uppercase tracking-wider">Asistencias</span>
-              </div>
-              <div className="text-3xl font-bold text-gray-900">5/5</div>
-              <div className="text-xs text-green-600 font-medium mt-1">100% Puntualidad</div>
-            </div>
-          </div>
-
-          {/* Today's Section */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold text-gray-900">Hoy, 24 Octubre</h2>
-              <span className="text-xs font-medium text-accent bg-accent/10 px-2 py-1 rounded">En curso</span>
-            </div>
-
-            {/* Active Card */}
-            <div className="relative overflow-hidden rounded-xl bg-card shadow-md border border-gray-100 group">
-              <div className="absolute top-0 left-0 w-1 h-full bg-accent"></div>
-              <div className="p-4">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-lg">Jardines del Norte</h3>
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                      <MapPin size={14} /> Zona Residencial A
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-bold border border-green-100">
-                      <CheckCircle size={14} /> Geo-validado
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 py-3 border-t border-gray-100 border-dashed">
-                  <div className="flex-1">
-                    <span className="text-xs text-gray-500 block mb-1">Entrada</span>
-                    <span className="text-base font-bold text-gray-900">07:00 AM</span>
-                  </div>
-                  <div className="flex flex-col items-center justify-center px-2">
-                    <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">9h 00m</span>
-                    <ArrowRight size={20} className="text-gray-300 my-1" />
-                  </div>
-                  <div className="flex-1 text-right">
-                    <span className="text-xs text-gray-500 block mb-1">Salida</span>
-                    <span className="text-base font-bold text-gray-900">04:00 PM</span>
-                  </div>
-                </div>
-
-                {/* Map Preview */}
-                <div className="mt-2 h-24 w-full rounded-lg overflow-hidden relative">
-                  <div className="absolute inset-0 bg-cover bg-center opacity-80" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=800')" }}></div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-2">
-                    <span className="text-white text-xs font-medium flex items-center gap-1">
-                      <Locate size={14} /> Ubicación confirmada
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Previous Days Section */}
-          <section>
-            <h2 className="text-lg font-bold text-gray-900 mb-3">Ayer, 23 Octubre</h2>
-            <div className="space-y-3">
-              {/* History Item 1 */}
-              <div className="flex flex-col bg-card rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-gray-600">
-                      <TreePine size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900 text-sm">Mantenimiento Central</h4>
-                      <p className="text-xs text-gray-500 mt-0.5">Parque Corporativo</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="block text-sm font-bold text-gray-900">8h 30m</span>
-                    <span className="text-xs text-green-600 flex items-center justify-end gap-0.5">
-                      <CheckCircle size={12} /> Validado
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
-                  <span>07:15 AM</span>
-                  <div className="h-[1px] flex-1 bg-gray-200 mx-2"></div>
-                  <span>03:45 PM</span>
-                </div>
-              </div>
-
-              {/* History Item 2 */}
-              <div className="flex flex-col bg-card rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start">
-                  <div className="flex gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-gray-600">
-                      <Leaf size={20} />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900 text-sm">Residencial Los Olivos</h4>
-                      <p className="text-xs text-gray-500 mt-0.5">Podado y Riego</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="block text-sm font-bold text-gray-900">4h 00m</span>
-                    <span className="text-xs text-orange-500 flex items-center justify-end gap-0.5">
-                      <AlertTriangle size={12} /> Manual
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
-                  <span>08:00 AM</span>
-                  <div className="h-[1px] flex-1 bg-gray-200 mx-2"></div>
-                  <span>12:00 PM</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* More History */}
-          <section>
-            <h2 className="text-lg font-bold text-gray-900 mb-3">22 Octubre</h2>
-            {/* History Item 3 */}
-            <div className="flex flex-col bg-card rounded-xl p-4 shadow-sm border border-gray-100 opacity-80">
-              <div className="flex justify-between items-start">
-                <div className="flex gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-gray-600">
-                    <Sun size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-900 text-sm">Plaza Comercial Sur</h4>
-                    <p className="text-xs text-gray-500 mt-0.5">Instalación</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="block text-sm font-bold text-gray-900">9h 15m</span>
-                  <span className="text-xs text-green-600 flex items-center justify-end gap-0.5">
-                    <CheckCircle size={12} /> Validado
-                  </span>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
-                <span>06:45 AM</span>
-                <div className="h-[1px] flex-1 bg-gray-200 mx-2"></div>
-                <span>04:00 PM</span>
-              </div>
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
-  if (view === 'reasignar') {
-    return (
-      <div className="flex flex-col min-h-[80vh]">
-        <header className="flex items-center gap-3 pb-4 border-b border-gray-100 mb-6">
-          <button onClick={() => setView('equipo')} className="flex items-center justify-center p-2 rounded-full hover:opacity-90/10 transition-colors text-gray-900">
-            <ArrowLeft size={24} />
-          </button>
-          <h1 className="text-lg font-bold text-gray-900 flex-1 text-center pr-10">Reasignar Personal</h1>
-        </header>
-
-        <div className="flex items-center gap-4 px-2 mb-6">
-          <div className="h-12 w-12 rounded-full bg-gray-200 border-2 border-white shadow-sm flex items-center justify-center text-gray-500 font-bold text-xl">
-            C
-          </div>
-          <div>
-            <p className="text-xs font-medium text-accent uppercase tracking-wider">Empleado</p>
-            <h2 className="text-lg font-bold text-gray-900">Carlos Méndez</h2>
-          </div>
-        </div>
-
-        <section className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-500 mb-3 px-2 uppercase tracking-wide">Proyecto Actual</h3>
-          <div className="bg-card rounded-xl p-4 shadow-sm border border-gray-100 flex gap-4 items-start relative overflow-hidden group">
-            <div className="absolute top-0 right-0 bg-accent/10 text-accent text-xs font-bold px-3 py-1 rounded-bl-lg">ACTIVO</div>
-            <div className="h-20 w-20 rounded-lg bg-gray-200 shrink-0 flex items-center justify-center text-gray-400">
-              <MapPin size={32} />
-            </div>
-            <div className="flex flex-col justify-center h-full py-1">
-              <h4 className="text-base font-bold text-gray-900 leading-tight">Residencial Las Lomas</h4>
-              <p className="text-sm text-gray-500 mt-1">Jardinería General</p>
-              <div className="flex items-center gap-1 mt-2 text-accent">
-                <User size={16} />
-                <span className="text-xs font-medium">Equipo: 4 personas</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-gray-500 px-2 uppercase tracking-wide">Seleccionar Nuevo Proyecto</h3>
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="text-gray-400" size={20} />
-            </div>
-            <input className="block w-full pl-10 pr-3 py-3 border-none rounded-xl bg-card text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-accent shadow-sm" placeholder="Buscar proyecto activo..." type="text" />
-          </div>
-
-          <div className="space-y-3">
-            <label className="relative flex items-center p-4 rounded-xl bg-card border-2 border-transparent hover:border-accent/50 cursor-pointer shadow-sm transition-all has-[:checked]:border-accent has-[:checked]:bg-accent/5">
-              <input className="sr-only peer" name="new_project" type="radio" value="1" />
-              <div className="flex-1 flex items-start gap-4">
-                <div className="h-16 w-16 rounded-lg bg-gray-200 shrink-0"></div>
-                <div>
-                  <h4 className="text-base font-bold text-gray-900">Torre Ejecutiva Norte</h4>
-                  <p className="text-sm text-gray-500">Mantenimiento de Fachada</p>
-                  <div className="flex items-center gap-4 mt-1">
-                    <div className="flex items-center gap-1 text-gray-600">
-                      <User size={14} /> <span className="text-xs">8 en sitio</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center peer-checked:border-accent peer-checked:bg-accent transition-all">
-                <Check className="text-white opacity-0 peer-checked:opacity-100" size={16} />
-              </div>
-            </label>
-          </div>
-        </section>
-
-        <div className="mt-8">
-          <button
-            onClick={() => {
-              showToast('Personal reasignado correctamente');
-              setView('equipo');
-            }}
-            className="w-full bg-accent hover:opacity-90/90 text-white font-bold text-lg py-4 rounded-xl shadow-lg shadow-accent/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-          >
-            <CheckCircle size={24} /> Confirmar Reasignación
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -1277,11 +828,11 @@ export default function Personal() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-accent/10 p-2 sm:p-3 rounded-xl text-accent">
-              {view === 'vehiculos' ? <Truck size={24} /> : view === 'profesionales' ? <Users size={24} /> : <User size={24} />}
+              {view === 'vehiculos' ? <Truck size={24} /> : <User size={24} />}
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-tx-primary">
-                {view === 'vehiculos' ? 'Gestión de Flota' : view === 'profesionales' ? 'Comunidad Pro' : 'Gestión de Personal'}
+                {view === 'vehiculos' ? 'Gestión de Flota' : 'Gestión de Personal'}
               </h1>
               <p className="text-sm text-tx-secondary mt-1">Administración centralizada de recursos y equipo.</p>
             </div>
@@ -1323,12 +874,6 @@ export default function Personal() {
 
 
       </div>
-
-      {view === 'ordenes' && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-          <TrabajosOrdenesTab />
-        </div>
-      )}
 
 
 
@@ -1410,24 +955,12 @@ export default function Personal() {
                 </div>
                 
                 {/* Botones de acción directos */}
-                <div className="flex sm:flex-nowrap gap-2 pt-3 border-t border-bd-lines dark:border-bd-lines/30 mt-auto w-full">
+                <div className="pt-3 border-t border-bd-lines dark:border-bd-lines/30 mt-auto w-full">
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleOpenEmployeeDetail(member); }} 
-                    className="flex-1 min-h-[38px] flex items-center justify-center gap-1.5 px-2 bg-gray-100 dark:bg-main text-gray-700 dark:text-tx-primary font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors text-xs shadow-sm hover:shadow"
+                    className="w-full min-h-[44px] flex items-center justify-center gap-2 bg-gray-50 dark:bg-main text-gray-700 dark:text-tx-primary font-bold rounded-xl hover:bg-accent hover:text-white dark:hover:bg-emerald-600 transition-all text-sm shadow-sm hover:shadow-md active:scale-[0.98]"
                   >
-                    <Briefcase size={14} className="shrink-0" /> Ficha
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleOpenHRDetail(member); }} 
-                    className="flex-1 min-h-[38px] flex items-center justify-center gap-1.5 px-2 bg-accent/10 dark:bg-emerald-500/10 text-accent dark:text-emerald-400 font-bold rounded-xl hover:opacity-90/20 transition-colors text-xs shadow-sm hover:shadow"
-                  >
-                    <Activity size={14} className="shrink-0" /> RH
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setView('ordenes'); }} 
-                    className="flex-1 min-h-[38px] flex items-center justify-center gap-1.5 px-2 bg-accent/10 dark:bg-blue-500/10 text-accent dark:text-blue-400 font-bold rounded-xl hover:opacity-90/20 transition-colors text-xs shadow-sm hover:shadow"
-                  >
-                    <FileText size={14} className="shrink-0" /> Órdenes
+                    <Briefcase size={16} className="shrink-0" /> Ver Expediente
                   </button>
                 </div>
               </div>
@@ -2151,184 +1684,222 @@ export default function Personal() {
       {/* Employee Detail Modal */}
       {isEmployeeDetailModalOpen && selectedEmployeeDetail && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="relative bg-card dark:bg-card rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-xl animate-in zoom-in-95 border border-transparent dark:border-bd-lines">
-            <div className="sticky top-0 z-20 p-4 border-b border-gray-100 dark:border-bd-lines flex justify-between items-center bg-card dark:bg-main/95 backdrop-blur-md">
-              <h3 className="font-bold text-gray-900 dark:text-tx-primary">Ficha de Empleado</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleExportEmployeePDF}
-                  disabled={isExporting}
-                  className={cn("p-1.5 rounded transition", isExporting ? "text-gray-300 dark:text-tx-secondary" : "text-gray-500 dark:text-tx-secondary hover:text-accent dark:hover:text-emerald-400 hover:opacity-90/10 dark:hover:bg-emerald-500/10")}
-                  title="Exportar a PDF"
+          <div className={cn("relative bg-card dark:bg-card rounded-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl animate-in zoom-in-95 border border-transparent dark:border-bd-lines transition-all duration-300", employeeTab === 'ficha' ? "max-w-md" : "max-w-2xl")}>
+            <div className="sticky top-0 z-20 flex flex-col bg-card dark:bg-main/95 backdrop-blur-md border-b border-gray-100 dark:border-bd-lines">
+              <div className="p-4 flex justify-between items-center">
+                <h3 className="font-bold text-gray-900 dark:text-tx-primary flex items-center gap-2">
+                  <User size={18} className="text-accent dark:text-emerald-500" />
+                  Expediente del Empleado
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={employeeTab === 'ficha' ? handleExportEmployeePDF : handleExportHRPDF}
+                    disabled={isExporting}
+                    className={cn("p-1.5 rounded transition", isExporting ? "text-gray-300 dark:text-tx-secondary" : "text-gray-500 dark:text-tx-secondary hover:text-accent dark:hover:text-emerald-400 hover:bg-gray-100 dark:hover:bg-slate-800")}
+                    title="Exportar a PDF"
+                  >
+                    <FileText size={18} className={isExporting ? "animate-pulse" : ""} />
+                  </button>
+                  <button onClick={() => setIsEmployeeDetailModalOpen(false)} className="text-gray-400 dark:text-tx-secondary p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex px-4 gap-6 bg-gray-50/50 dark:bg-main/50">
+                <button 
+                  onClick={() => setEmployeeTab('ficha')} 
+                  className={cn("py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2", employeeTab === 'ficha' ? "border-accent text-accent dark:border-emerald-500 dark:text-emerald-400" : "border-transparent text-gray-500 dark:text-tx-secondary hover:text-gray-700 dark:hover:text-tx-primary")}
                 >
-                  <FileText size={20} className={isExporting ? "animate-pulse" : ""} />
+                  <Briefcase size={16} /> Ficha General
                 </button>
-                <button onClick={() => setIsEmployeeDetailModalOpen(false)} className="text-gray-400 dark:text-tx-secondary hover:text-gray-600 dark:hover:text-white p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
-                  <X size={20} />
+                <button 
+                  onClick={() => setEmployeeTab('rh')} 
+                  className={cn("py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2", employeeTab === 'rh' ? "border-accent text-accent dark:border-emerald-500 dark:text-emerald-400" : "border-transparent text-gray-500 dark:text-tx-secondary hover:text-gray-700 dark:hover:text-tx-primary")}
+                >
+                  <Activity size={16} /> Recursos Humanos
                 </button>
               </div>
             </div>
-            <div className="p-6 space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-gray-200 dark:bg-main border-2 border-bd-lines dark:border-emerald-500/10 flex items-center justify-center text-gray-500 dark:text-tx-secondary font-bold text-2xl">
-                  {selectedEmployeeDetail.initials}
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-tx-primary">{selectedEmployeeDetail.name}</h2>
-                  <p className="text-sm text-accent dark:text-emerald-400 font-medium">{selectedEmployeeDetail.role}</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-main/50 rounded-xl p-4 border border-gray-100 dark:border-bd-lines/50">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider">Adelantos</p>
-                  <button
-                    onClick={() => {
-                      setIsEditingAdelantos(!isEditingAdelantos);
-                      if (!isEditingAdelantos) setEditAdelantosValue(selectedEmployeeDetail.adelantos || '$0');
-                    }}
-                    className="text-gray-400 dark:text-tx-secondary hover:text-accent dark:hover:text-emerald-400 transition-colors"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                </div>
-                {isEditingAdelantos ? (
-                  <div className="flex gap-2">
-                     <input
-                       type="text"
-                       value={editAdelantosValue}
-                       onChange={(e) => setEditAdelantosValue(e.target.value)}
-                       className="w-full px-2 py-1 text-sm bg-card dark:bg-card text-gray-900 dark:text-tx-primary border border-gray-300 dark:border-slate-600 rounded focus:outline-none focus:border-accent dark:focus:border-emerald-500"
-                       autoFocus
-                     />
-                     <button onClick={handleSaveEmployeeDetail} className="bg-accent text-white p-1 rounded hover:opacity-90 dark:hover:bg-emerald-600">
-                       <Check size={14} />
-                     </button>
-                  </div>
-                ) : (
-                  <p className="text-lg font-bold text-gray-900 dark:text-tx-primary">{selectedEmployeeDetail.adelantos || '$0'}</p>
-                )}
-              </div>
-
-              {/* Seguro / ART */}
-              <div className="bg-gray-50 dark:bg-main/50 rounded-xl p-4 border border-gray-100 dark:border-bd-lines/50">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider">Seguro / ART</p>
-                  <button
-                    onClick={() => {
-                      setIsEditingSeguro(!isEditingSeguro);
-                      if (!isEditingSeguro) setEditSeguroValue(selectedEmployeeDetail.seguro || '');
-                    }}
-                    className="text-gray-400 dark:text-tx-secondary hover:text-accent dark:hover:text-emerald-400 transition-colors"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                </div>
-                {isEditingSeguro ? (
-                  <div className="flex gap-2">
-                     <input
-                       type="text"
-                       value={editSeguroValue}
-                       onChange={(e) => setEditSeguroValue(e.target.value)}
-                       placeholder="Ej. Asociart / Póliza N°..."
-                       className="w-full px-2 py-1 text-sm bg-card dark:bg-card text-gray-900 dark:text-tx-primary border border-gray-300 dark:border-slate-600 rounded focus:outline-none focus:border-accent dark:focus:border-emerald-500"
-                       autoFocus
-                     />
-                     <button onClick={handleSaveEmployeeDetail} className="bg-accent text-white p-1 rounded hover:opacity-90 dark:hover:bg-emerald-600">
-                       <Check size={14} />
-                     </button>
-                  </div>
-                ) : (
-                  <p className="text-lg font-bold text-gray-900 dark:text-tx-primary">{selectedEmployeeDetail.seguro || 'No especificado'}</p>
-                )}
-              </div>
-
-              {/* Obra Asignada */}
-              <div className="bg-gray-50 dark:bg-main/50 rounded-xl p-4 border border-gray-100 dark:border-bd-lines/50">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider">Obra Asignada</p>
-                  <button
-                    onClick={() => {
-                      setIsEditingObraAsignada(!isEditingObraAsignada);
-                      if (!isEditingObraAsignada) setEditObraAsignadaValue(selectedEmployeeDetail.obraAsignada || '');
-                    }}
-                    className="text-gray-400 dark:text-tx-secondary hover:text-accent dark:hover:text-emerald-400 transition-colors"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                </div>
-                {isEditingObraAsignada ? (
-                  <div className="flex flex-col gap-2">
-                     <select
-                       value={editObraAsignadaValue}
-                       onChange={(e) => setEditObraAsignadaValue(e.target.value)}
-                       className="w-full px-2 py-2 text-sm bg-card dark:bg-card text-gray-900 dark:text-tx-primary border border-gray-300 dark:border-slate-600 rounded focus:outline-none focus:border-accent dark:focus:border-emerald-500 font-bold"
-                       autoFocus
-                     >
-                       <option value="">Sin Asignar</option>
-                       {projectsData && projectsData.map((p: any) => (
-                           <option key={p.id} value={p.name}>{p.name}</option>
-                       ))}
-                     </select>
-                     <button onClick={handleSaveEmployeeDetail} className="bg-accent text-white p-2 rounded hover:opacity-90 dark:hover:bg-emerald-600 flex justify-center items-center font-bold text-sm w-full gap-2 transition-colors">
-                       <Check size={16} /> Guardar Obra
-                     </button>
-                  </div>
-                ) : (
-                  <p className="text-lg font-bold text-gray-900 dark:text-tx-primary line-clamp-2">{selectedEmployeeDetail.obraAsignada || 'Ninguna'}</p>
-                )}
-              </div>
-
-              {/* Botón a Órdenes de Trabajo */}
-              <button
-                onClick={() => {
-                   setIsEmployeeDetailModalOpen(false);
-                   setView('ordenes');
-                }}
-                className="w-full flex items-center justify-center gap-2 bg-accent/10 hover:bg-accent/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-accent dark:text-emerald-400 font-bold py-3.5 rounded-xl transition-all border border-accent/20 dark:border-emerald-500/20 shadow-sm"
-              >
-                <Briefcase size={20} />
-                Ver Órdenes de Trabajo
-              </button>
-
-              {/* Reporte de Consumos */}
-              <div className="bg-gray-50 dark:bg-main/50 rounded-xl p-4 border border-gray-100 dark:border-bd-lines/50">
-                 <div className="flex justify-between items-center mb-3">
-                   <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider">Reporte de Consumos</p>
-                 </div>
-                 <div className="space-y-2 mb-4 bg-card dark:bg-card border border-gray-200 dark:border-bd-lines p-3 rounded-lg shadow-sm">
-                    <div className="flex gap-2 mb-2">
-                      <select 
-                        value={newConsumption.project} 
-                        onChange={e => setNewConsumption({...newConsumption, project: e.target.value, materialId: ''})} 
-                        className="flex-1 text-sm bg-card dark:bg-card text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-slate-600 p-2 rounded-lg outline-none focus:border-accent dark:focus:border-emerald-500 transition-colors font-bold"
-                      >
-                        <option value="unset" disabled>Seleccionar Obra (Agrupado por Cliente)...</option>
-                        {projectsData && Object.entries(
-                          projectsData.reduce((acc: any, p: any) => {
-                            const clientName = p.cliente || 'Sin Cliente';
-                            if (!acc[clientName]) acc[clientName] = [];
-                            acc[clientName].push(p);
-                            return acc;
-                          }, {})
-                        ).map(([client, projs]: any) => (
-                          <optgroup key={client} label={`Cliente: ${client}`}>
-                            {projs.map((p: any) => (
-                               <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </select>
+            
+            <div className="p-6 space-y-6 animate-in fade-in duration-300">
+              {employeeTab === 'ficha' ? (
+                <div className="animate-in slide-in-from-left-4 fade-in duration-300 flex flex-col gap-5">
+                  <div className="flex items-center gap-4 bg-card dark:bg-main p-4 rounded-xl border border-gray-100 dark:border-bd-lines shadow-sm shrink-0">
+                    <div className="h-14 w-14 rounded-full bg-gray-200 dark:bg-slate-700 border-2 border-white dark:border-bd-lines flex items-center justify-center text-gray-500 dark:text-tx-secondary font-bold text-xl shadow-sm shrink-0">
+                      {selectedEmployeeDetail.initials}
                     </div>
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-black text-gray-900 dark:text-tx-primary truncate">{selectedEmployeeDetail.name}</h2>
+                      <p className="text-sm text-gray-500 dark:text-tx-secondary font-medium truncate">{selectedEmployeeDetail.role} • {selectedEmployeeDetail.category === 'interno' ? 'Planta Permanente' : 'Contratista Externo'}</p>
+                    </div>
+                  </div>
+
+              {/* Información Operativa Card */}
+              <div className="bg-card dark:bg-main rounded-xl p-5 border border-gray-100 dark:border-bd-lines shadow-sm flex flex-col gap-4">
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle size={16} className="text-emerald-500" /> Información Operativa
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Adelantos */}
+                  <div className="flex flex-col justify-between p-4 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-100 dark:border-bd-lines rounded-xl group hover:border-accent/40 transition-colors gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-widest flex items-center gap-2">Adelantos</span>
+                      <button
+                        onClick={() => {
+                          setIsEditingAdelantos(!isEditingAdelantos);
+                          if (!isEditingAdelantos) setEditAdelantosValue(selectedEmployeeDetail.adelantos || '$0');
+                        }}
+                        className="text-gray-400 dark:text-tx-secondary hover:text-accent transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                    {isEditingAdelantos ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editAdelantosValue}
+                          onChange={(e) => setEditAdelantosValue(e.target.value)}
+                          className="w-full p-2 text-sm bg-gray-50 dark:bg-main text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-bd-lines rounded-lg focus:outline-none focus:border-accent transition-colors font-bold shadow-inner"
+                          autoFocus
+                        />
+                        <button onClick={handleSaveEmployeeDetail} className="bg-accent text-white px-3 rounded-lg hover:brightness-110 font-bold transition-all shadow-sm">
+                          <Check size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xl font-black text-gray-900 dark:text-tx-primary">{selectedEmployeeDetail.adelantos || '$0'}</span>
+                    )}
+                  </div>
+
+                  {/* Seguro / ART */}
+                  <div className="flex flex-col justify-between p-4 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-100 dark:border-bd-lines rounded-xl group hover:border-accent/40 transition-colors gap-2">
+                     <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-widest flex items-center gap-2">Seguro / ART</span>
+                      <button
+                        onClick={() => {
+                          setIsEditingSeguro(!isEditingSeguro);
+                          if (!isEditingSeguro) setEditSeguroValue(selectedEmployeeDetail.seguro || '');
+                        }}
+                        className="text-gray-400 dark:text-tx-secondary hover:text-accent transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                    {isEditingSeguro ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editSeguroValue}
+                          onChange={(e) => setEditSeguroValue(e.target.value)}
+                          className="w-full p-2 text-sm bg-gray-50 dark:bg-main text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-bd-lines rounded-lg focus:outline-none focus:border-accent transition-colors font-bold shadow-inner"
+                          autoFocus
+                        />
+                        <button onClick={handleSaveEmployeeDetail} className="bg-accent text-white px-3 rounded-lg hover:brightness-110 font-bold transition-all shadow-sm">
+                          <Check size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                       <span className="text-xl font-black text-gray-900 dark:text-tx-primary">{selectedEmployeeDetail.seguro || 'No especificado'}</span>
+                    )}
+                  </div>
+
+                  {/* Obra Asignada */}
+                  <div className="flex flex-col justify-between p-4 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-100 dark:border-bd-lines rounded-xl group hover:border-accent/40 transition-colors gap-2 md:col-span-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-widest flex items-center gap-2">Obra Actual Asignada</span>
+                      <button
+                        onClick={() => {
+                          setIsEditingObraAsignada(!isEditingObraAsignada);
+                          if (!isEditingObraAsignada) setEditObraAsignadaValue(selectedEmployeeDetail.obraAsignada || '');
+                        }}
+                        className="text-gray-400 dark:text-tx-secondary hover:text-accent transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                    {isEditingObraAsignada ? (
+                      <div className="flex gap-2">
+                         <select
+                           value={editObraAsignadaValue}
+                           onChange={(e) => setEditObraAsignadaValue(e.target.value)}
+                           className="flex-1 px-3 py-2 text-sm bg-gray-50 dark:bg-main text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-bd-lines rounded-lg focus:outline-none focus:border-accent transition-colors font-bold shadow-inner"
+                         >
+                           <option value="">Sin Asignar</option>
+                           {projectsData && Object.entries(
+                              projectsData.reduce((acc: any, p: any) => {
+                                 const clientName = p.cliente || 'Sin Cliente';
+                                 if (!acc[clientName]) acc[clientName] = [];
+                                 acc[clientName].push(p);
+                                 return acc;
+                              }, {})
+                           ).map(([client, projs]: any) => (
+                              <optgroup key={client} label={`Cliente: ${client}`}>
+                                 {projs.map((p: any) => (
+                                    <option key={p.id} value={p.name}>{p.name}</option>
+                                 ))}
+                              </optgroup>
+                           ))}
+                         </select>
+                         <button onClick={handleSaveEmployeeDetail} className="bg-accent text-white px-4 rounded-lg hover:brightness-110 font-bold transition-all shadow-sm">
+                           Guardar
+                         </button>
+                      </div>
+                    ) : (
+                      <span className="text-xl font-black text-gray-900 dark:text-tx-primary line-clamp-1">
+                        {(() => {
+                           if (!selectedEmployeeDetail.obraAsignada) return 'Ninguna obra asignada';
+                           const proj = projectsData?.find((p: any) => p.name === selectedEmployeeDetail.obraAsignada);
+                           return proj ? `${proj.cliente || 'Sin Cliente'} • ${proj.name}` : selectedEmployeeDetail.obraAsignada;
+                        })()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Reporte de Consumos Card */}
+              <div className="bg-card dark:bg-main rounded-xl p-5 border border-gray-100 dark:border-bd-lines shadow-sm flex flex-col gap-4">
+                 <div className="flex justify-between items-center mb-1">
+                   <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider flex items-center gap-2">
+                     <FileText size={16} className="text-purple-500" /> Registro de Consumos en Obra
+                   </p>
+                 </div>
+                 
+                 <div className="flex flex-col gap-3">
+                    <select 
+                      value={newConsumption.project} 
+                      onChange={e => setNewConsumption({...newConsumption, project: e.target.value, materialId: ''})} 
+                      className="w-full text-sm bg-gray-50 dark:bg-slate-900/50 text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-bd-lines p-3 rounded-lg outline-none focus:border-accent transition-colors font-bold shadow-sm"
+                    >
+                      <option value="unset" disabled>Seleccionar Obra (Agrupado por Cliente)...</option>
+                      {projectsData && Object.entries(
+                        projectsData.reduce((acc: any, p: any) => {
+                          const clientName = p.cliente || 'Sin Cliente';
+                          if (!acc[clientName]) acc[clientName] = [];
+                          acc[clientName].push(p);
+                          return acc;
+                        }, {})
+                      ).map(([client, projs]: any) => (
+                        <optgroup key={client} label={`Cliente: ${client}`}>
+                          {projs.map((p: any) => (
+                             <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
 
                     {newConsumption.project !== 'unset' && (
-                      <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-bd-lines animate-in fade-in slide-in-from-top-2">
+                      <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 p-3 bg-gray-50/50 dark:bg-slate-900/50 border border-gray-100 dark:border-bd-lines rounded-xl">
                         <select 
                           value={newConsumption.materialId} 
                           onChange={e => setNewConsumption({...newConsumption, materialId: e.target.value})} 
-                          className="w-full text-sm bg-gray-50 dark:bg-card/50 text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-slate-600 p-2 rounded-lg outline-none focus:border-accent dark:focus:border-emerald-500 transition-colors"
+                          className="w-full text-sm bg-gray-50 dark:bg-main text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-bd-lines p-3 rounded-lg outline-none focus:border-accent transition-colors font-semibold shadow-inner"
                         >
-                          <option value="">Selecciona insumo (Obra o Generales del Cliente)...</option>
+                          <option value="">Selecciona un insumo...</option>
                           {(() => {
                             const selectedProj = projectsData?.find((p: any) => p.id === newConsumption.project);
                             const projItems = selectedProj?.assignedItems || [];
@@ -2338,33 +1909,33 @@ export default function Personal() {
                               <>
                                 {projItems.length > 0 && (
                                   <optgroup label={`Insumos Directos de la Obra: ${selectedProj?.name}`}>
-                                    {projItems.map((m: any) => <option key={`obra_${m.id || Math.random()}`} value={`obra_${m.id}`}>{m.name || m.nombre} (Stock Obra: {m.qty || m.cantidad})</option>)}
+                                    {projItems.map((m: any) => <option key={`obra_${m.id || Math.random()}`} value={`obra_${m.id}`}>{m.name || m.nombre} (Stock: {m.qty || m.cantidad})</option>)}
                                   </optgroup>
                                 )}
                                 {clientMaterials.length > 0 && (
-                                  <optgroup label={`Insumos Generales del Cliente: ${selectedProj?.cliente}`}>
-                                    {clientMaterials.map((m: any) => <option key={`gral_${m.id || Math.random()}`} value={`gral_${m.id}`}>{m.name || m.nombre} (Stock Gral: {m.qty || m.cantidad})</option>)}
+                                  <optgroup label={`Catálogo General del Cliente: ${selectedProj?.cliente}`}>
+                                    {clientMaterials.map((m: any) => <option key={`gral_${m.id || Math.random()}`} value={`gral_${m.id}`}>{m.name || m.nombre} (Stock: {m.qty || m.cantidad})</option>)}
                                   </optgroup>
                                 )}
                               </>
                             );
                           })()}
                         </select>
-                        <div className="flex gap-2 mt-2">
+                        <div className="flex gap-2">
                           <input 
                             type="number" 
                             min="1" 
                             value={newConsumption.qty} 
                             onChange={e => setNewConsumption({...newConsumption, qty: Number(e.target.value)})} 
                             placeholder="Cant." 
-                            className="w-20 text-sm bg-card dark:bg-card text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-slate-600 p-2 rounded-lg outline-none focus:border-accent dark:focus:border-emerald-500 transition-colors" 
+                            className="w-[88px] text-sm bg-gray-50 dark:bg-main text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-bd-lines p-3 rounded-lg outline-none focus:border-accent transition-colors font-bold shadow-inner" 
                           />
                           <input 
                             type="text" 
                             value={newConsumption.notes} 
                             onChange={e => setNewConsumption({...newConsumption, notes: e.target.value})} 
-                            placeholder={newConsumption.project !== 'unset' ? "Reportar faltante (si omitió insumo)..." : "Notas (opcional)..."} 
-                            className="flex-1 text-sm bg-card dark:bg-card text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-slate-600 p-2 rounded-lg outline-none focus:border-accent dark:focus:border-emerald-500 transition-colors" 
+                            placeholder={newConsumption.project !== 'unset' ? "Notas (o reporte de faltante)..." : "Notas..."} 
+                            className="flex-1 text-sm bg-gray-50 dark:bg-main text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-bd-lines p-3 rounded-lg outline-none focus:border-accent transition-colors shadow-inner" 
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 if (newConsumption.project !== 'unset' && !newConsumption.materialId && newConsumption.notes.trim()) {
@@ -2375,47 +1946,51 @@ export default function Personal() {
                               }
                             }}
                           />
-                          <div className="flex flex-col gap-1">
+                          <div className="flex gap-2 shrink-0">
                             <button 
                               onClick={handleReportConsumption} 
                               disabled={!newConsumption.materialId || newConsumption.qty <= 0}
-                              className="bg-accent hover:bg-[#2c4a3b] text-white p-2 rounded-lg transition-colors disabled:opacity-50 shadow-sm min-w-[40px] flex items-center justify-center font-bold"
+                              className="bg-accent hover:bg-[#2c4a3b] text-white p-3 rounded-lg transition-colors disabled:opacity-50 shadow-sm w-[46px] flex items-center justify-center font-bold"
                               title="Registrar Consumo"
                             >
-                              <CheckCircle size={16} />
+                              <CheckCircle size={18} />
                             </button>
                             {newConsumption.project !== 'unset' && (
                               <button 
                                 onClick={handleReportFaltante} 
                                 disabled={!newConsumption.notes.trim() || !!newConsumption.materialId}
-                                className="bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 p-2 rounded-lg transition-colors disabled:opacity-50 border border-red-500/20 min-w-[40px] flex items-center justify-center"
+                                className="bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 p-3 rounded-lg transition-colors disabled:opacity-50 border border-transparent dark:border-red-500/20 w-[46px] flex items-center justify-center shadow-sm"
                                 title="Reportar Faltante en Obra (Escribir en Notas)"
                               >
-                                <AlertTriangle size={16} />
+                                <AlertTriangle size={18} />
                               </button>
                             )}
                           </div>
                         </div>
                       </div>
                     )}
-                  </div>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {(selectedEmployeeDetail.consumptionReports || []).map(rep => (
-                     <div key={rep.id} className="text-xs bg-card dark:bg-card p-3 border border-gray-100 dark:border-bd-lines rounded-lg shadow-sm">
-                       <div className="flex justify-between font-bold text-gray-800 dark:text-tx-primary border-b border-gray-50 dark:border-bd-lines pb-1 mb-1">
-                         <span>{rep.qty}x {rep.materialName}</span>
-                         <span className="text-accent dark:text-emerald-400">{new Date(rep.date).toLocaleDateString()}</span>
-                       </div>
-                       <p className="text-gray-500 dark:text-tx-secondary font-medium">{rep.project}</p>
-                       {rep.notes && <p className="text-gray-400 dark:text-tx-secondary italic mt-1">"{rep.notes}"</p>}
-                     </div>
-                   ))}
-                   {!(selectedEmployeeDetail.consumptionReports?.length) && <p className="text-sm text-gray-400 dark:text-tx-secondary italic text-center py-2">No hay consumos reportados</p>}
                  </div>
-               </div>
-             </div>
 
-             <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-bd-lines">
+                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                   {(selectedEmployeeDetail.consumptionReports || []).map(rep => (
+                    <div key={rep.id} className="text-xs bg-gray-50/50 dark:bg-slate-900/50 p-3 border border-gray-100 dark:border-bd-lines rounded-xl shadow-sm hover:border-accent/40 transition-colors group">
+                      <div className="flex justify-between font-extrabold text-gray-800 dark:text-tx-primary border-b border-gray-100 dark:border-bd-lines pb-2 mb-2">
+                        <span className="text-sm">{rep.qty}x {rep.materialName}</span>
+                        <span className="text-accent group-hover:brightness-110 transition-colors">{new Date(rep.date).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-tx-secondary font-bold text-sm tracking-tight">{rep.project}</p>
+                      {rep.notes && <p className="text-gray-500 dark:text-tx-secondary italic mt-1.5 bg-gray-100 dark:bg-card/50 px-2.5 py-2 rounded-md shadow-inner">"{rep.notes}"</p>}
+                    </div>
+                  ))}
+                  {!(selectedEmployeeDetail.consumptionReports?.length) && (
+                    <div className="py-8 bg-gray-50/50 dark:bg-main rounded-xl border border-gray-200 dark:border-bd-lines border-dashed flex flex-col items-center justify-center gap-2">
+                       <p className="text-sm italic font-bold text-gray-400 dark:text-tx-secondary">No hay historial de consumos registrado.</p>
+                    </div>
+                  )}
+                 </div>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 dark:border-bd-lines">
                <button
                  onClick={() => {
                    setSelectedMember(selectedEmployeeDetail);
@@ -2425,7 +2000,7 @@ export default function Personal() {
                >
                  <X size={16} /> Eliminar
                </button>
-                <button
+                                <button
                   onClick={() => {
                     setSelectedMember(selectedEmployeeDetail);
                     handleOpenEdit(selectedEmployeeDetail);
@@ -2435,43 +2010,11 @@ export default function Personal() {
                 >
                   <Edit2 size={16} /> Editar Datos
                 </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* HR Detail Modal */}
-      {isHRModalOpen && selectedEmployeeDetail && (
-        <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsHRModalOpen(false)}></div>
-          <div className="relative bg-card dark:bg-card rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 border border-transparent dark:border-bd-lines">
-            <div className="sticky top-0 z-20 p-5 border-b border-gray-100 dark:border-bd-lines flex justify-between items-center bg-card dark:bg-main/95 backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <Activity size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-tx-primary text-lg">Gestión de RRHH</h3>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Alertas y Métricas Comparativas</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleExportHRPDF}
-                  disabled={isExporting}
-                  className="text-gray-500 hover:text-accent hover:opacity-90/10 dark:text-tx-secondary dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10 p-2 rounded transition-colors flex items-center gap-2"
-                  title="Exportar Reporte a PDF"
-                >
-                  <FileText size={20} />
-                </button>
-                <button onClick={() => setIsHRModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-white p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors">
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 bg-gray-50/30 dark:bg-main/30 flex flex-col gap-5">
-               <div className="flex items-center gap-4 bg-card dark:bg-main p-4 rounded-xl border border-gray-100 dark:border-bd-lines shadow-sm shrink-0">
+               </div>
+             </div>
+           ) : (
+             <div className="animate-in slide-in-from-right-4 fade-in duration-300 flex flex-col gap-5">
+<div className="flex items-center gap-4 bg-card dark:bg-main p-4 rounded-xl border border-gray-100 dark:border-bd-lines shadow-sm shrink-0">
                  <div className="h-14 w-14 rounded-full bg-gray-200 dark:bg-slate-700 border-2 border-white dark:border-bd-lines flex items-center justify-center text-gray-500 dark:text-tx-secondary font-bold text-xl shadow-sm shrink-0">
                    {selectedEmployeeDetail.initials}
                  </div>
@@ -2594,49 +2137,74 @@ export default function Personal() {
                  </div>
                </div>
 
-               {/* Minutas Diarias */}
+               {/* Órdenes de Trabajo */}
                <div className="bg-card dark:bg-main rounded-xl p-5 border border-gray-100 dark:border-bd-lines shadow-sm flex-1 flex flex-col min-h-[250px]">
                  <div className="flex justify-between items-center mb-4">
-                   <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider flex items-center gap-2"><Paperclip size={16} className="text-purple-500"/> Repositorio de Minutas Diarias</p>
+                   <p className="text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider flex items-center gap-2"><Briefcase size={16} className="text-purple-500"/> Repositorio de Órdenes de Trabajo</p>
                  </div>
                  <div className="flex gap-2 mb-4">
                    <input 
                      type="text" 
                      value={newMinuteCode} 
                      onChange={e => setNewMinuteCode(e.target.value)} 
-                     placeholder="Añadir código o título de minuta de RRHH..." 
+                     placeholder="Añadir código o título de la orden..." 
                      className="flex-1 text-sm bg-gray-50 dark:bg-card text-gray-900 dark:text-tx-primary border border-gray-200 dark:border-slate-600 p-3 rounded-lg outline-none focus:border-blue-500 transition-colors shadow-sm"
                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddMinute(); }}
                    />
                    <button onClick={handleAddMinute} className="bg-blue-600 hover:bg-blue-700 shadow-sm text-white px-5 rounded-lg transition-colors font-bold text-sm">Adjuntar</button>
                  </div>
                  <div className="flex-1 overflow-y-auto pr-1 space-y-2">
+                   {/* Órdenes generadas en sistema */}
+                   {ordenesData?.filter((o: any) => o.empleado === selectedEmployeeDetail.name).map((o: any) => (
+                     <div key={`sys-${o.id}`} className="flex items-center justify-between bg-blue-50/30 dark:bg-card p-3 border border-blue-100/50 dark:border-blue-500/20 rounded-xl group hover:border-blue-300 dark:hover:border-blue-500/40 transition-colors">
+                       <div className="flex items-center gap-3">
+                         <div className="bg-blue-100 dark:bg-blue-500/20 p-2 rounded-lg text-blue-600 dark:text-blue-400"><Briefcase size={16} /></div>
+                         <div className="flex flex-col">
+                           <span className="text-sm font-bold text-gray-700 dark:text-tx-primary line-clamp-1">{o.proyectoNombre || 'Orden General'}</span>
+                           <span className="text-xs text-gray-400 font-medium">Fecha: {o.fecha} • Cliente: {o.clienteNombre || 'S/A'}</span>
+                         </div>
+                       </div>
+                       {o.pdfCertificadoUrl && (
+                         <a href={o.pdfCertificadoUrl} target="_blank" rel="noreferrer" className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center shrink-0">
+                            Ver PDF
+                         </a>
+                       )}
+                     </div>
+                   ))}
+
+                   {/* Órdenes vinculadas manualmente */}
                    {(selectedEmployeeDetail.minutes || []).map(m => (
                      <div key={m.id} className="flex items-center justify-between bg-gray-50/50 dark:bg-card p-3 border border-gray-100 dark:border-bd-lines rounded-xl group hover:border-blue-200 dark:hover:border-blue-500/30 transition-colors">
                        <div className="flex items-center gap-3">
                          <div className="bg-purple-100 dark:bg-purple-500/20 p-2 rounded-lg text-purple-600 dark:text-purple-400"><FileText size={16} /></div>
                          <div>
                            <span className="block text-sm font-bold text-gray-700 dark:text-tx-primary">{m.code}</span>
-                           <span className="block text-xs text-gray-400 font-medium">Subido el {new Date(m.date).toLocaleDateString()}</span>
+                           <span className="block text-xs text-gray-400 font-medium">Asignada el {new Date(m.date).toLocaleDateString()}</span>
                          </div>
                        </div>
                        <button onClick={() => handleRemoveMinute(m.id)} className="p-2 rounded-lg text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"><Trash2 size={16} /></button>
                      </div>
                    ))}
-                   {!(selectedEmployeeDetail.minutes?.length) && (
+
+                   {!(selectedEmployeeDetail.minutes?.length) && !ordenesData?.some((o: any) => o.empleado === selectedEmployeeDetail.name) && (
                      <div className="h-full flex flex-col items-center justify-center py-6 text-gray-400 dark:text-tx-secondary">
-                       <Paperclip size={32} className="mb-2 opacity-50"/>
-                       <p className="text-sm font-medium">Buzón de minutas vacío</p>
-                       <p className="text-xs opacity-70">Adjunta la minuta agregando su código arriba</p>
+                       <Briefcase size={32} className="mb-2 opacity-50"/>
+                       <p className="text-sm font-medium">Buzón de órdenes vacío</p>
+                       <p className="text-xs opacity-70">Adjunta la orden de trabajo según su código o título</p>
                      </div>
                    )}
                  </div>
                </div>
-            </div>
-
+            
+             </div>
+          )}
+          </div>
           </div>
         </div>
       )}
+
+      {/* HR Detail Modal */}
+      
 
 
 

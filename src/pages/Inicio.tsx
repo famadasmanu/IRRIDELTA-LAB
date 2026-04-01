@@ -35,12 +35,16 @@ import {
  TrendingUp,
  Plus,
  ImagePlus,
- Trash2
+ Trash2,
+ Instagram,
+ Newspaper
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useNovedadesAutomaticas } from '../hooks/useNovedadesAutomaticas';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useLocalConfig } from '../hooks/useLocalConfig';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
+import { useAlerts } from '../hooks/useAlerts';
 import { format, parseISO } from 'date-fns';
 import { auth, storage } from '../lib/firebase';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -98,48 +102,20 @@ export default function Inicio() {
   });
   const isAdmin = userRole === 'admin' || userRole === 'invitado' || userRole === 'desarrollador';
 
-  // State for Editable Partner News
-  const { data: partnerNews, add: addPartnerNews, remove: removePartnerNews } = useFirestoreCollection<any>('partner_news');
+  // Automated Partner News
+  const { novedades, addUrl, fuentes, remove, fetchNovedades } = useNovedadesAutomaticas();
   const [isAddPartnerNewsOpen, setIsAddPartnerNewsOpen] = useState(false);
-  const [newPartnerNews, setNewPartnerNews] = useState({ partnerName: '', title: '', description: '', link: '', date: format(new Date(), 'yyyy-MM-dd') });
-  const [partnerNewsImage, setPartnerNewsImage] = useState<string | null>(null);
+  const [newUrl, setNewUrl] = useState('');
   const [isUploadingNews, setIsUploadingNews] = useState(false);
-
-  const handlePartnerImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      try {
-        const options = { maxSizeMB: 0.2, maxWidthOrHeight: 1200, useWebWorker: true, initialQuality: 0.8 };
-        const compressedFile = await imageCompression(file, options);
-        const reader = new FileReader();
-        reader.onloadend = () => setPartnerNewsImage(reader.result as string);
-        reader.readAsDataURL(compressedFile);
-      } catch (err) {
-        console.error("Error al comprimir:", err);
-      }
-    }
-  };
 
   const handleAddPartnerNews = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPartnerNews.title || !newPartnerNews.link || !partnerNewsImage) return;
+    if (!newUrl) return;
     setIsUploadingNews(true);
-    try {
-      let finalImageUrl = partnerNewsImage;
-      if (partnerNewsImage.startsWith('data:image')) {
-        const imageRef = ref(storage, `partner_news/${Date.now()}_${Math.random().toString(36).substring(7)}`);
-        await uploadString(imageRef, partnerNewsImage, 'data_url');
-        finalImageUrl = await getDownloadURL(imageRef);
-      }
-      await addPartnerNews({ ...newPartnerNews, image: finalImageUrl, createdAt: new Date().toISOString() });
-      setIsAddPartnerNewsOpen(false);
-      setNewPartnerNews({ partnerName: '', title: '', description: '', link: '', date: format(new Date(), 'yyyy-MM-dd') });
-      setPartnerNewsImage(null);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsUploadingNews(false);
-    }
+    await addUrl(newUrl);
+    setNewUrl('');
+    setIsUploadingNews(false);
+    // Remove auto-close so they can see the list update and manage other sources
   };
 
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
@@ -166,34 +142,10 @@ export default function Inicio() {
   };
 
   // Alertas integradas para el contador del dashboard
-  const { data: alertasRaw } = useFirestoreCollection<any>('alertas');
+  const { unreadCount: unreadAlertsCounter } = useAlerts();
   const { data: portfolioRaw } = useFirestoreCollection<any>('trabajos_portfolio');
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todayJobs = portfolioRaw.filter((job: any) => job.fechaInicio === todayStr);
-  const [localDismissed, setLocalDismissed] = useState<string[]>([]);
-  const [localResolved, setLocalResolved] = useState<string[]>([]);
-
- useEffect(() => {
- const fetchLocalAlertStates = () => {
- try {
- const d = JSON.parse(localStorage.getItem('alertasDismissed') || '[]');
- const r = JSON.parse(localStorage.getItem('alertasResolved') || '[]');
- setLocalDismissed(Array.isArray(d) ? d : []);
- setLocalResolved(Array.isArray(r) ? r : []);
- } catch (e) { }
- };
- fetchLocalAlertStates();
- window.addEventListener('alertas-local-updated', fetchLocalAlertStates);
- return () => window.removeEventListener('alertas-local-updated', fetchLocalAlertStates);
- }, []);
-
- const baseAlertas = alertasRaw;
- const unreadAlertsCounter = baseAlertas.filter((a: any) => {
- const isDismissed = localDismissed.includes(a.id);
- const isResolved = a.resuelta || localResolved.includes(a.id);
- const requiresAction = a.nivel === 'accion' || a.nivel === 'atencion';
- return !isDismissed && !isResolved && requiresAction;
- }).length;
 
  // WMO Weather Code Mapping to Icons and Text
  const getWeatherInfo = (code: number) => {
@@ -209,23 +161,23 @@ export default function Inicio() {
  }
  };
 
- useEffect(() => {
- // Auto-scroll carousel every 5 seconds
- const interval = setInterval(() => {
- if (carouselRef.current) {
- const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
- const isEnd = scrollLeft + clientWidth >= scrollWidth - 10;
+  useEffect(() => {
+  // Auto-scroll carousel every 10 seconds (User requested slower movement)
+  const interval = setInterval(() => {
+  if (carouselRef.current) {
+  const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+  const isEnd = scrollLeft + clientWidth >= scrollWidth - 10;
 
- if (isEnd) {
- carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
- } else {
- carouselRef.current.scrollBy({ left: clientWidth, behavior: 'smooth' });
- }
- }
- }, 5000);
+  if (isEnd) {
+  carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+  } else {
+  carouselRef.current.scrollBy({ left: clientWidth, behavior: 'smooth' });
+  }
+  }
+  }, 10000);
 
- return () => clearInterval(interval);
- }, []);
+  return () => clearInterval(interval);
+  }, []);
  useEffect(() => {
  checkAuthStatus();
 
@@ -617,86 +569,105 @@ export default function Inicio() {
 
     {/* Socios Estratégicos */}
     <section className="bg-card rounded-2xl p-6 shadow-sm border border-bd-lines">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 px-1 gap-4">
         <div className="flex items-center gap-3">
           <Handshake className="size-6 text-accent" />
           <h2 className="text-tx-primary text-xl font-bold tracking-tight">Novedades de Socios</h2>
+        </div>
+        
+        <div className="flex items-center gap-3">
           {isAdmin && (
             <button
                onClick={() => setIsAddPartnerNewsOpen(true)}
-               className="ml-2 flex items-center gap-1 bg-accent/10 text-accent px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-accent hover:text-white transition-colors"
+               className="flex items-center gap-2 bg-accent/10 text-accent border border-accent/20 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-accent hover:text-white transition-colors"
             >
-               <Plus size={16} /> Añadir
+               <Settings2 size={16} /> Fuentes
             </button>
           )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => scrollCarousel('left')}
-            className="p-2 rounded-full bg-main text-tx-secondary hover:bg-slate-200 transition-colors"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <button
-            onClick={() => scrollCarousel('right')}
-            className="p-2 rounded-full bg-main text-tx-secondary hover:bg-slate-200 transition-colors"
-          >
-            <ChevronRight size={20} />
-          </button>
+
+          <div className="flex items-center gap-2 lg:ml-2 border-l border-bd-lines pl-3">
+            <button
+              onClick={() => scrollCarousel('left')}
+              className="p-2 rounded-lg bg-main text-tx-secondary hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-transparent shadow-sm"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={() => scrollCarousel('right')}
+              className="p-2 rounded-lg bg-main text-tx-secondary hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-transparent shadow-sm"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {partnerNews.length > 0 ? (
+      {novedades.length > 0 ? (
         <div
           ref={carouselRef}
           className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-4 hide-scrollbar"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {partnerNews.map((news: any) => (
+          {novedades.map((news: any) => (
             <div
               key={news.id}
-              className="min-w-[100%] md:min-w-[calc(50%-12px)] lg:min-w-[calc(33.333%-16px)] snap-start shrink-0 relative rounded-xl overflow-hidden group shadow-md border border-bd-lines flex flex-col"
+              className={cn(
+                "min-w-[100%] md:min-w-[calc(50%-12px)] lg:min-w-[calc(33.333%-16px)] snap-start shrink-0 relative rounded-2xl overflow-hidden group shadow-md border flex flex-col",
+                news.isInstagram ? "border-pink-500/30 hover:shadow-pink-500/20" : "border-bd-lines hover:border-blue-500/50"
+              )}
             >
-              <div className="h-48 relative overflow-hidden">
-                <img
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  alt={news.title}
-                  src={news.image}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
-                <div className="absolute top-4 left-4">
-                  <span className="bg-white text-slate-900 text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-                    {news.partnerName}
-                  </span>
-                </div>
-                {isAdmin && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); removePartnerNews(news.id); }}
-                    className="absolute top-4 right-4 bg-red-500/80 backdrop-blur-sm text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-sm"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+              <div className="h-44 relative overflow-hidden bg-main">
+                {news.imagen ? (
+                  <img
+                    src={news.imagen}
+                    alt={news.titulo}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-slate-800 dark:to-slate-700"></div>
                 )}
-              </div>
-              <div className="p-5 flex flex-col flex-1 bg-card">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-tx-secondary">
-                    {format(parseISO(news.date), "d 'de' MMMM, yyyy", { locale: es })}
-                  </span>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
+                <div className="absolute top-4 left-4 flex items-center gap-2">
+                  {news.isInstagram ? (
+                     <div className="px-5 py-2.5 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F56040] rounded-full text-white text-xs lg:text-sm font-black uppercase tracking-widest shadow-xl flex items-center gap-2 border-[1.5px] border-white/40 backdrop-blur-xl">
+                       <Instagram size={18} /> {news.socio}
+                     </div>
+                   ) : (
+                     <div className="px-5 py-2.5 bg-white dark:bg-slate-900 backdrop-blur-xl border-[1.5px] border-white/20 dark:border-slate-700/50 rounded-full text-tx-primary text-xs lg:text-sm font-black uppercase tracking-widest shadow-xl flex items-center gap-2">
+                       <Newspaper size={18} className="text-blue-500" /> {news.socio}
+                     </div>
+                   )}
                 </div>
-                <h3 className="text-lg font-bold text-tx-primary leading-tight mb-2 line-clamp-2">
-                  {news.title}
+              </div>
+
+              <div className="flex flex-col flex-1 bg-card p-5 relative">
+                <div className="absolute -top-6 right-4 z-10 px-2.5 py-1 bg-card border border-bd-lines text-[10px] font-bold text-tx-secondary rounded-full shadow-sm">
+                  {format(news.fecha, "d/M - HH:mm", { locale: es })}
+                </div>
+
+                <h3 className={cn(
+                  "text-lg font-bold leading-tight mb-2 transition-colors line-clamp-2 mt-1",
+                   news.isInstagram ? "text-tx-primary group-hover:text-pink-500" : "text-tx-primary group-hover:text-blue-500"
+                )}>
+                  {news.titulo}
                 </h3>
-                <p className="text-sm text-tx-secondary line-clamp-3 mb-4 flex-1">
-                  {news.description}
+                <p className="text-sm text-tx-secondary leading-relaxed line-clamp-3 mb-6 flex-1">
+                  {news.descripcion}
                 </p>
-                <button
-                  onClick={() => news.link.startsWith('http') ? window.open(news.link, '_blank') : navigate(news.link)}
-                  className="w-full bg-main text-tx-primary py-2.5 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
-                >
-                  Ver novedad
-                  <ArrowRight size={16} />
-                </button>
+                <div className="mt-auto">
+                   <a
+                     href={news.link}
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     className={cn(
+                       "flex items-center justify-center w-full py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm",
+                       news.isInstagram ? "bg-pink-500/10 text-pink-500 hover:bg-pink-500 hover:text-white" : "bg-main text-tx-primary hover:bg-slate-200 dark:hover:bg-slate-800 border-bd-lines border"
+                     )}
+                   >
+                     <span>{news.isInstagram ? "Ver en Instagram" : "Leer novedad completa"}</span>
+                     <ExternalLink size={16} className="ml-2" />
+                   </a>
+                </div>
               </div>
             </div>
           ))}
@@ -815,42 +786,49 @@ export default function Inicio() {
  </Modal>
 
   {/* Modal - Añadir Novedad de Socio */}
-  <Modal isOpen={isAddPartnerNewsOpen} onClose={() => setIsAddPartnerNewsOpen(false)} title="Cargar Novedad de Socio">
-    <form onSubmit={handleAddPartnerNews} className="space-y-4">
-      <div>
-        <label className="block text-sm font-semibold text-tx-primary mb-1">Nombre del Socio / Entidad</label>
-        <input type="text" required value={newPartnerNews.partnerName} onChange={e => setNewPartnerNews({...newPartnerNews, partnerName: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: Todo Riego, Pampa Riego..." />
+  <Modal isOpen={isAddPartnerNewsOpen} onClose={() => setIsAddPartnerNewsOpen(false)} title="Gestor de Fuentes RSS/Web">
+    <div className="space-y-6">
+      <div className="bg-main border border-bd-lines rounded-xl p-4">
+        <p className="text-sm text-tx-secondary mb-3">Conecta URLs en formato RSS de blogs corporativos o perfiles de Instagram de Socios. El sistema detectará automáticamente al socio y extraerá la información.</p>
+        <form onSubmit={handleAddPartnerNews} className="space-y-3">
+          <div>
+            <input type="url" required value={newUrl} onChange={e => setNewUrl(e.target.value)} className="w-full bg-card border border-bd-lines rounded-lg px-4 py-3 text-tx-primary font-mono text-sm shadow-inner" placeholder="Ej: https://instagram.com/mi_socio o https://misocio.com/blog" />
+          </div>
+          <button type="submit" disabled={isUploadingNews} className="w-full bg-accent text-white font-bold py-2.5 rounded-lg hover:bg-[#15803d] transition-colors flex items-center justify-center gap-2 shadow-sm">
+            {isUploadingNews ? <Loader2 className="animate-spin size-4" /> : <><Plus size={16} /> Añadir Fuente</>}
+          </button>
+        </form>
       </div>
+      
       <div>
-        <label className="block text-sm font-semibold text-tx-primary mb-1">Título de Novedad</label>
-        <input type="text" required value={newPartnerNews.title} onChange={e => setNewPartnerNews({...newPartnerNews, title: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="Ej: Nueva línea de Bombas sumergibles" />
+         <h4 className="font-bold text-tx-primary mb-3">Fuentes Conectadas ({fuentes.length})</h4>
+         <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+            {fuentes.length === 0 ? (
+               <p className="text-center text-sm text-tx-secondary py-4 bg-main rounded-xl border border-dashed border-bd-lines">No hay enlaces conectados.</p>
+            ) : (
+               fuentes.map((f: any) => (
+                  <div key={f.id} className="flex items-center justify-between p-3 bg-main border border-bd-lines rounded-lg group hover:border-red-500/30 transition-colors">
+                     <div className="flex-1 min-w-0 pr-4">
+                       <span className="font-bold text-sm text-tx-primary block truncate">{f.socio}</span>
+                       <span className="text-xs text-tx-secondary truncate block">{f.urlRss}</span>
+                     </div>
+                     <button
+                        onClick={async () => await remove(f.id)}
+                        className="text-tx-secondary hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors shrink-0"
+                        title="Eliminar enlace"
+                     >
+                        <Trash2 size={16} />
+                     </button>
+                  </div>
+               ))
+            )}
+         </div>
       </div>
-      <div>
-        <label className="block text-sm font-semibold text-tx-primary mb-1">Descripción corta</label>
-        <textarea required maxLength={150} rows={2} value={newPartnerNews.description} onChange={e => setNewPartnerNews({...newPartnerNews, description: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary resize-none" placeholder="Ingresa un breve copete..."></textarea>
+      
+      <div className="flex justify-end pt-2 border-t border-bd-lines">
+        <button type="button" onClick={() => { fetchNovedades(); setIsAddPartnerNewsOpen(false); }} className="px-5 py-2.5 bg-card border border-bd-lines font-bold rounded-xl text-tx-primary hover:bg-main transition-colors text-sm">Cerrar y Actualizar</button>
       </div>
-      <div>
-        <label className="block text-sm font-semibold text-tx-primary mb-1">Enlace de Destino (Link)</label>
-        <input type="url" required value={newPartnerNews.link} onChange={e => setNewPartnerNews({...newPartnerNews, link: e.target.value})} className="w-full bg-main border border-bd-lines rounded-xl px-4 py-3 text-tx-primary" placeholder="https://instagram.com/..." />
-      </div>
-      <div>
-        <label className="block text-sm font-semibold text-tx-primary mb-1">Imagen de Portada</label>
-        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-bd-lines border-dashed rounded-xl cursor-pointer hover:bg-main transition-colors overflow-hidden group">
-          {partnerNewsImage ? (
-            <img src={partnerNewsImage} alt="Preview" className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
-          ) : (
-            <div className="flex flex-col items-center justify-center text-tx-secondary">
-              <ImagePlus className="size-8 mb-2 opacity-50" />
-              <p className="text-sm font-medium">Click para subir foto</p>
-            </div>
-          )}
-          <input type="file" className="hidden" accept="image/jpeg, image/png, image/webp" onChange={handlePartnerImageChange} />
-        </label>
-      </div>
-      <button type="submit" disabled={isUploadingNews} className="w-full bg-accent text-white font-bold py-3.5 rounded-xl hover:bg-[#15803d] transition-colors flex items-center justify-center gap-2 mt-2">
-        {isUploadingNews ? <Loader2 className="animate-spin size-5" /> : 'Publicar Novedad'}
-      </button>
-    </form>
+    </div>
   </Modal>
 
  {/* Toast Notification */}

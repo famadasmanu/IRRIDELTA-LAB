@@ -13,7 +13,9 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         workbox: {
-          maximumFileSizeToCacheInBytes: 5242880 // 5 MB
+          maximumFileSizeToCacheInBytes: 5242880, // 5 MB
+          skipWaiting: true,
+          clientsClaim: true
         },
         manifest: {
           name: 'Argent Software',

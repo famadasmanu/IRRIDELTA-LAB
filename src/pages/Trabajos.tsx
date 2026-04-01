@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { Modal } from '../components/Modal';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
+import { useDataMining } from '../hooks/useDataMining';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
@@ -56,6 +57,8 @@ export default function Trabajos() {
     const [companyData] = useCompanyConfig();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { trackPresupuesto } = useDataMining();
+    
     React.useEffect(() => {
         if (searchParams.get('action') === 'new') {
              // Delay modal opening slightly to ensure state is ready
@@ -383,6 +386,12 @@ export default function Trabajos() {
         await updatePortfolioInDB(id, updateData);
 
         setSelectedTrabajo({ ...selectedTrabajo, ...updateData });
+        
+        // Tracking Invisible B2B: Intención de Presupuesto
+        if (gastosDetalle.length > 0) {
+            trackPresupuesto(gastosDetalle, selectedTrabajo.ubicacion || 'General');
+        }
+
         displayToast('Métricas e Inventario vinculados y guardados');
     };
 
