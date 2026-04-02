@@ -13,6 +13,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { OrdenesTab } from './trabajos/OrdenesTab';
 
 
 const createCustomIcon = (imgUrl: string) => {
@@ -66,7 +67,7 @@ export default function Trabajos() {
         }
     }, [searchParams]);
 
-    const [activeDetailTab, setActiveDetailTab] = useState<'pactados' | 'inventario'>('pactados');
+    const [activeDetailTab, setActiveDetailTab] = useState<'pactados' | 'inventario' | 'ordenes'>('pactados');
     const [currentDate, setCurrentDate] = useState(new Date());
     const { data: portfolioRaw, add: addPortfolioToDB, remove: removePortfolioFromDB, update: updatePortfolioInDB } = useFirestoreCollection<any>('trabajos_portfolio');
     const portfolioData = portfolioRaw;
@@ -1113,6 +1114,12 @@ export default function Trabajos() {
                                 Trabajos Pactados
                             </button>
                             <button
+                                onClick={() => setActiveDetailTab('ordenes')}
+                                className={cn("px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap", activeDetailTab === 'ordenes' ? "bg-accent text-white shadow-md shadow-accent/20" : "bg-card text-tx-secondary hover:bg-main border border-bd-lines")}
+                            >
+                                Órdenes / Visitas
+                            </button>
+                            <button
                                 onClick={() => setActiveDetailTab('inventario')}
                                 className={cn("px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap", activeDetailTab === 'inventario' ? "bg-accent text-white shadow-md shadow-accent/20" : "bg-card text-tx-secondary hover:bg-main border border-bd-lines")}
                             >
@@ -1120,6 +1127,14 @@ export default function Trabajos() {
                             </button>
                         </div>
                         
+                        {activeDetailTab === 'ordenes' && (
+                            <OrdenesTab 
+                                selectedTrabajo={selectedTrabajo} 
+                                updatePortfolioInDB={updatePortfolioInDB} 
+                                setSelectedTrabajo={setSelectedTrabajo} 
+                            />
+                        )}
+
                         {activeDetailTab === 'pactados' && (
                             <div>
                                 <div className="flex justify-between items-center mb-6">

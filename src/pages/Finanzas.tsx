@@ -263,7 +263,9 @@ type Pago = {
    : '0.0';
 
  // Egresos calculados desde comprobantes de pago reales 
- const totalPagosRegistrados = pagosData.reduce((sum, p) => sum + (Number(p.amount) || 0), 0); return (
+ const totalPagosRegistrados = pagosData.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+ 
+ return (
  <div className="space-y-6">
  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
  <h1 className="text-2xl md:text-3xl font-bold text-tx-primary">Finanzas</h1>

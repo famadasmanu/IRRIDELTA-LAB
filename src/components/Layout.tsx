@@ -95,14 +95,15 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
   ];
 
   const filteredMenuItems = menuItems.filter(item => {
-    if (userRole === 'admin') return true;
+    if (userRole === 'admin' || userRole === 'invitado' || userRole === 'desarrollador' || userRole === 'irridelta') return true;
     if (userRole === 'tecnico') {
       return ['/inicio', '/inventario', '/clientes', '/herramientas', '/ecosistema', '/notificaciones'].includes(item.path);
     }
-    if (userRole === 'vendedor') {
+    if (userRole === 'vendedor' || userRole === 'profesional') {
       return ['/inicio', '/clientes', '/archivo', '/herramientas', '/ecosistema', '/finanzas', '/notificaciones'].includes(item.path);
     }
-    return true;
+    // Fallback safe para operarios u otros:
+    return ['/inicio', '/inventario', '/clientes', '/ecosistema', '/herramientas', '/notificaciones'].includes(item.path);
   });
 
   useEffect(() => {

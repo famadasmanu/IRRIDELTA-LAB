@@ -514,7 +514,7 @@ export default function Inventario() {
                 onClick={() => setActiveCategory('maquinarias')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
                   activeCategory === 'maquinarias'
-                    ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/30 shadow-sm'
+                    ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30 shadow-sm'
                     : 'text-tx-secondary hover:bg-card/50 border border-transparent hover:border-bd-lines'
                 }`}
               >
@@ -527,7 +527,7 @@ export default function Inventario() {
                 onClick={() => setActiveCategory('aditivos')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
                   activeCategory === 'aditivos'
-                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 shadow-sm'
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/30 shadow-sm'
                     : 'text-tx-secondary hover:bg-card/50 border border-transparent hover:border-bd-lines'
                 }`}
               >
@@ -540,7 +540,7 @@ export default function Inventario() {
                 onClick={() => setActiveCategory('materiales')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
                   activeCategory === 'materiales'
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-sm'
+                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 shadow-sm'
                     : 'text-tx-secondary hover:bg-card/50 border border-transparent hover:border-bd-lines'
                 }`}
               >
@@ -570,9 +570,9 @@ export default function Inventario() {
                     setIsAddingItem('project'); 
                     setNewItem({ name: '', cliente: presetCliente, clienteId: presetClienteId, location: '', itemsCount: 0, checklist: [] }); 
                   }}
-                  className="flex items-center gap-1 text-xs font-semibold text-accent bg-accent/10 px-3 py-1.5 rounded-lg hover:opacity-90/20 transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-black text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)]"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                   Nuevo
                 </button>
               )}

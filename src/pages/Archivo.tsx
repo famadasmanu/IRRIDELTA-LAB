@@ -5,7 +5,7 @@ import {
   FolderOpen, ShieldCheck, AlertTriangle, ChevronRight, Download,
   Share2, CheckCircle, XCircle, Eye, ArrowLeft, ArrowRight,
   HardDrive, Users, Briefcase, Plus, X, Maximize2, ExternalLink, Clock,
-  Map, FileSignature, Landmark, Star, Bookmark
+  Map, FileSignature, Landmark, Star, Bookmark, MessageCircle
 } from 'lucide-react';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { storage } from '../lib/firebase';
@@ -56,6 +56,10 @@ export default function Archivo() {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [optionsNode, setOptionsNode] = useState<ArchivoNode | null>(null);
+  
+  // Modals for Editing
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
   
   // Modals for Personal
   const [isPersonalModalOpen, setIsPersonalModalOpen] = useState(false);
@@ -146,7 +150,20 @@ export default function Archivo() {
     if (n.includes('permis') || n.includes('municipal')) return Landmark;
     if (n.includes('contrat') || n.includes('legal')) return FileSignature;
     if (n.includes('inform') || n.includes('consumo')) return FileSpreadsheet;
+    if (n.includes('orden') || n.includes('trabajo')) return Briefcase;
+    if (n.includes('whatsapp') || n.includes('pedido')) return MessageCircle;
     return Bookmark;
+  };
+
+  const getPillarColor = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('orden') || n.includes('trabajo')) return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"; 
+    if (n.includes('whatsapp') || n.includes('pedido') || n.includes('insumo')) return "bg-violet-500/10 text-violet-600 dark:text-violet-400"; 
+    if (n.includes('maquin') || n.includes('equipo')) return "bg-orange-500/10 text-orange-600 dark:text-orange-400"; 
+    if (n.includes('legal') || n.includes('contrat')) return "bg-amber-500/10 text-amber-600 dark:text-amber-400"; 
+    if (n.includes('consumo') || n.includes('inform')) return "bg-blue-500/10 text-blue-600 dark:text-blue-400"; 
+    if (n.includes('plano') || n.includes('diseño')) return "bg-rose-500/10 text-rose-600 dark:text-rose-400";
+    return "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400";
   };
 
   const getBaseRootInfo = (id: string) => {
@@ -173,7 +190,7 @@ export default function Archivo() {
   };
 
   const handleSeedDefaults = async () => {
-    const defaults = ['Planos y Diseños', 'Permisos Municipales', 'Contratos y Legales', 'Informes de Consumo'];
+    const defaults = ['Planos y Diseños', 'Permisos Municipales', 'Contratos y Legales', 'Informes de Consumo', 'Órdenes de Trabajo', 'Pedidos de WhatsApp'];
     for (const name of defaults) {
       await addNode({
         name,
@@ -244,6 +261,15 @@ export default function Archivo() {
     await removeNode(node.id);
     setOptionsNode(null);
     displayToast('Elemento eliminado permanentemente');
+  };
+
+  const handleRenameNode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!optionsNode || !renameValue.trim()) return;
+    await updateNode(optionsNode.id, { name: renameValue.trim() } as any);
+    setOptionsNode(null);
+    setIsRenameModalOpen(false);
+    displayToast('Elemento renombrado exitosamente');
   };
 
   const handleSavePersonalDoc = async (e: React.FormEvent) => {
@@ -371,7 +397,7 @@ export default function Archivo() {
                 key={pillar.id}
                 onClick={() => { setActiveTab('drive'); setCurrentFolderId(pillar.id); setSearchQuery(''); }}
                 className={cn("flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold text-sm", 
-                  activeTab === 'drive' && currentFolderId === pillar.id ? "bg-emerald-50 text-accent dark:bg-emerald-900/30 dark:text-emerald-400 shadow-sm" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  activeTab === 'drive' && currentFolderId === pillar.id ? getPillarColor(pillar.name) + " shadow-sm" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
                 )}
               >
                 <PillarIcon size={18} /> {pillar.name}
@@ -467,9 +493,9 @@ export default function Archivo() {
                     >
                       <div className="flex justify-between items-start mb-4">
                         <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
-                          isFolder ? "bg-blue-50 text-blue-500" : 
-                          node.fileType === 'pdf' ? "bg-rose-50 text-rose-500" :
-                          ['jpg','png','jpeg'].includes(node.fileType||'') ? "bg-purple-50 text-purple-500" : "bg-emerald-50 text-emerald-500"
+                          isFolder ? getPillarColor(node.name) : 
+                          node.fileType === 'pdf' ? "bg-rose-50 text-rose-500 border border-rose-100" :
+                          ['jpg','png','jpeg'].includes(node.fileType||'') ? "bg-purple-50 text-purple-500 border border-purple-100" : "bg-emerald-50 text-emerald-500 border border-emerald-100"
                         )}>
                           {isFolder ? <Folder size={24} className="fill-current opacity-80" /> : 
                            node.fileType === 'pdf' ? <FileText size={24} /> :
@@ -665,10 +691,32 @@ export default function Archivo() {
               </button>
             </>
           )}
+          <button onClick={() => { setRenameValue(optionsNode?.name || ''); setIsRenameModalOpen(true); }} className="w-full flex items-center gap-3 p-4 bg-slate-50 hover:bg-slate-100 rounded-xl font-bold text-slate-700 transition-colors">
+            <Edit2 size={20} className="text-blue-500" /> Renombrar / Editar Nombre
+          </button>
           <button onClick={() => handleDeleteNode(optionsNode!)} className="w-full flex items-center gap-3 p-4 bg-red-50 hover:bg-red-100 rounded-xl font-bold text-red-600 transition-colors border border-red-100 mt-4">
             <Trash2 size={20} /> Eliminar Permanentemente
           </button>
         </div>
+      </Modal>
+
+      {/* Rename Modal */}
+      <Modal isOpen={isRenameModalOpen} onClose={() => setIsRenameModalOpen(false)} title="Renombrar Elemento">
+        <form onSubmit={handleRenameNode} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Nuevo Nombre</label>
+            <input
+              type="text"
+              autoFocus
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-accent/50 outline-none"
+            />
+          </div>
+          <button type="submit" disabled={!renameValue.trim()} className="w-full bg-accent text-white font-bold py-3.5 rounded-xl disabled:opacity-50">
+            Confirmar Cambios
+          </button>
+        </form>
       </Modal>
 
     </div>

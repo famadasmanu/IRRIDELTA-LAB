@@ -7,10 +7,11 @@ import {
   Truck, Plus, Edit2, Camera,
   Wrench, Droplets, Activity, FileText, Timer, CalendarDays,
   BatteryWarning, UploadCloud, Save, Leaf, Sun, ArrowRight, Download, Trash2,
-  DollarSign, Fuel, Paperclip
+  DollarSign, Fuel, Paperclip, CheckSquare
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -94,6 +95,7 @@ export type UpcomingService = {
 
 // Removed old initial hardcoded data blocks
 export default function Personal() {
+  const navigate = useNavigate();
   const [view, setView] = useState<'equipo' | 'vehiculos'>('equipo');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<'todos' | 'interno' | 'externo'>('todos');
   // Firestore Collections
@@ -120,7 +122,7 @@ export default function Personal() {
   const { data: materialesData, update: updateMaterial } = useFirestoreCollection<any>('inventario_generales');
   const { data: projectsData, update: updateProject } = useFirestoreCollection<any>('projects');
   const { data: trabajosData } = useFirestoreCollection<any>('trabajos_portfolio');
-  const { data: ordenesData } = useFirestoreCollection<any>('trabajos_ordenes');
+  const { data: ordenesData, add: addOrden, update: updateOrden, remove: removeOrden } = useFirestoreCollection<any>('trabajos_ordenes');
 
   const [selectedMember, setSelectedMember] = useState<PersonalMember | null>(null);
   const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
@@ -142,11 +144,54 @@ export default function Personal() {
   const [editCategory, setEditCategory] = useState<'interno' | 'externo'>('interno');
   const [editEmployeeStatus, setEditEmployeeStatus] = useState<'activo' | 'descanso' | 'inactivo'>('activo');
   const [editEmployeeLocation, setEditEmployeeLocation] = useState('');
+  const [employeeTab, setEmployeeTab] = useState<'ficha' | 'rh' | 'ordenes'>('ficha');
+  const [isEmployeeOrderModalOpen, setIsEmployeeOrderModalOpen] = useState(false);
+  const [newEmployeeOrder, setNewEmployeeOrder] = useState({ id: '', title: '', location: '', category: 'Mantenimiento de Piletas', description: '', tools: '', scheduledDate: new Date().toISOString().split('T')[0] });
+  const [selectedOrderTab, setSelectedOrderTab] = useState<'activas' | 'completadas'>('activas');
 
-  const [employeeTab, setEmployeeTab] = useState<'ficha' | 'rh'>('ficha');
+  const handleSaveEmployeeOrder = () => {
+    if (!newEmployeeOrder.title) return;
+    
+    if (newEmployeeOrder.id) {
+       updateOrden(newEmployeeOrder.id, {
+          title: newEmployeeOrder.title,
+          location: newEmployeeOrder.location || 'Base Marinas',
+          category: newEmployeeOrder.category || 'Mantenimiento General',
+          description: newEmployeeOrder.description || '',
+          tools: newEmployeeOrder.tools || '',
+          scheduledDate: newEmployeeOrder.scheduledDate || new Date().toISOString().split('T')[0],
+       });
+    } else {
+       addOrden({
+         title: newEmployeeOrder.title,
+         location: newEmployeeOrder.location || 'Base Marinas',
+         category: newEmployeeOrder.category || 'Mantenimiento General',
+         description: newEmployeeOrder.description || '',
+         tools: newEmployeeOrder.tools || '',
+         scheduledDate: newEmployeeOrder.scheduledDate || new Date().toISOString().split('T')[0],
+         status: 'en_curso',
+         date: new Date().toISOString(),
+         monthGroup: new Date().toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
+         empleado: selectedEmployeeDetail?.name || 'Desconocido',
+       });
+    }
+    
+    setNewEmployeeOrder({ id: '', title: '', location: '', category: 'Mantenimiento de Piletas', description: '', tools: '', scheduledDate: new Date().toISOString().split('T')[0] });
+    setIsEmployeeOrderModalOpen(false);
+  };
   
-
-
+  const handleEditEmployeeOrder = (orden: any) => {
+     setNewEmployeeOrder({
+        id: orden.id, 
+        title: orden.title, 
+        location: orden.location, 
+        category: orden.category || 'Mantenimiento General',
+        description: orden.description || '',
+        tools: orden.tools || '',
+        scheduledDate: orden.scheduledDate || new Date(orden.date || Date.now()).toISOString().split('T')[0]
+     });
+     setIsEmployeeOrderModalOpen(true);
+  };
   const [isAddingMetric, setIsAddingMetric] = useState(false);
   const [newMetric, setNewMetric] = useState({ month: 'Enero', year: new Date().getFullYear(), salary: '', fuel: '', attendance: '' });
 
@@ -915,7 +960,7 @@ export default function Personal() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             {personalData.filter((m: PersonalMember) => activeCategoryFilter === 'todos' || m.category === activeCategoryFilter).map((member: PersonalMember) => (
-              <div key={member.id} className={cn("bg-card dark:bg-card rounded-2xl p-4 shadow-sm border border-bd-lines dark:border-bd-lines flex flex-col gap-3 transition-all", member.status === 'inactivo' && "opacity-60")}>
+              <div key={member.id} className={cn("glass-card p-4 md:p-5 flex flex-col justify-between transition-all gap-4", member.status === 'inactivo' && "opacity-60")}>
                 <div className="flex items-start gap-4">
                   <div className="relative shrink-0">
                     <div className="h-14 w-14 rounded-full bg-gray-200 dark:bg-main border-2 border-bd-lines dark:border-emerald-500/10 flex items-center justify-center text-gray-500 dark:text-tx-secondary font-bold text-xl">{member.initials}</div>
@@ -935,12 +980,25 @@ export default function Personal() {
                         </div>
                         <p className="text-sm text-accent dark:text-emerald-400 font-medium mt-0.5">{member.role}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-0.5">
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleOpenOptions(member); }}
-                          className="text-gray-400 dark:text-tx-secondary hover:text-gray-600 dark:hover:text-white p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }}
+                          className="text-gray-400 dark:text-tx-secondary/70 hover:text-blue-500 p-1.5 rounded-full hover:bg-blue-500/10 transition-colors"
+                          title="Editar Perfil"
                         >
-                          <MoreVertical size={16} />
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if(window.confirm('¿Seguro que deseas eliminar definitivamente a este empleado?')) {
+                              removePersonal(member.id).then(() => showToast('Empleado borrado permanentemente'));
+                            }
+                          }}
+                          className="text-gray-400 dark:text-tx-secondary/70 hover:text-red-500 p-1.5 rounded-full hover:bg-red-500/10 transition-colors"
+                          title="Eliminar Empleado"
+                        >
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
@@ -955,12 +1013,18 @@ export default function Personal() {
                 </div>
                 
                 {/* Botones de acción directos */}
-                <div className="pt-3 border-t border-bd-lines dark:border-bd-lines/30 mt-auto w-full">
+                <div className="pt-4 border-t border-bd-lines mt-auto w-full flex flex-col gap-2">
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleOpenEmployeeDetail(member); }} 
-                    className="w-full min-h-[44px] flex items-center justify-center gap-2 bg-gray-50 dark:bg-main text-gray-700 dark:text-tx-primary font-bold rounded-xl hover:bg-accent hover:text-white dark:hover:bg-emerald-600 transition-all text-sm shadow-sm hover:shadow-md active:scale-[0.98]"
+                    className="w-full min-h-[44px] flex items-center justify-center gap-2 bg-emerald-500/10 text-emerald-400 font-bold rounded-xl hover:bg-emerald-500/20 transition-all text-sm border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)] active:scale-[0.98]"
                   >
                     <Briefcase size={16} className="shrink-0" /> Ver Expediente
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setSelectedEmployeeDetail(member); setEmployeeTab('ordenes'); setIsEmployeeDetailModalOpen(true); }} 
+                    className="w-full min-h-[36px] flex items-center justify-center gap-2 bg-main text-tx-secondary hover:text-white font-bold rounded-xl hover:bg-slate-800 transition-all text-xs border border-bd-lines active:scale-[0.98]"
+                  >
+                    <CheckSquare size={14} className="shrink-0" /> Órdenes Diarias
                   </button>
                 </div>
               </div>
@@ -1152,27 +1216,34 @@ export default function Personal() {
       {/* Options Modal */}
       {isOptionsModalOpen && selectedMember && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-card rounded-2xl w-full max-w-sm overflow-hidden shadow-xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="font-bold text-gray-900">Opciones: {selectedMember.name}</h3>
-              <button onClick={() => setIsOptionsModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200 transition-colors">
+          <div className="glass-card rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 border border-bd-lines">
+            <div className="p-4 border-b border-bd-lines flex justify-between items-center bg-main shrink-0">
+              <h3 className="font-bold text-tx-primary text-base truncate pr-2">Opciones: {selectedMember.name}</h3>
+              <button onClick={() => setIsOptionsModalOpen(false)} className="text-tx-secondary hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors shrink-0">
                 <X size={20} />
               </button>
             </div>
-            <div className="p-2">
+            <div className="p-3 flex flex-col gap-2">
+              <button
+                onClick={() => { setIsOptionsModalOpen(false); handleOpenEmployeeDetail(selectedMember); }}
+                className="w-full text-left px-4 py-3.5 text-sm font-bold text-tx-primary hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-3 border border-transparent hover:border-bd-lines"
+              >
+                <Briefcase size={18} className="text-emerald-400" />
+                Ver Expediente / Ficha
+              </button>
               <button
                 onClick={() => handleOpenEdit()}
-                className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-xl transition-colors flex items-center gap-3"
+                className="w-full text-left px-4 py-3.5 text-sm font-bold text-tx-primary hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-3 border border-transparent hover:border-bd-lines"
               >
-                <User size={18} className="text-gray-400" />
-                Editar Perfil
+                <Edit2 size={18} className="text-blue-400" />
+                Editar Perfil del Empleado
               </button>
               <button
                 onClick={handleDeleteMember}
-                className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-3"
+                className="w-full text-left px-4 py-3.5 text-sm font-bold text-red-500 hover:bg-red-500/10 rounded-xl transition-colors flex items-center gap-3 border border-transparent hover:border-red-500/20"
               >
-                <X size={18} className="text-red-600" />
-                Eliminar Empleado
+                <Trash2 size={18} className="text-red-500" />
+                Dar de Baja Definitiva
               </button>
             </div>
           </div>
@@ -1714,15 +1785,126 @@ export default function Personal() {
                 </button>
                 <button 
                   onClick={() => setEmployeeTab('rh')} 
-                  className={cn("py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2", employeeTab === 'rh' ? "border-accent text-accent dark:border-emerald-500 dark:text-emerald-400" : "border-transparent text-gray-500 dark:text-tx-secondary hover:text-gray-700 dark:hover:text-tx-primary")}
+                  className={cn("py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0", employeeTab === 'rh' ? "border-accent text-accent dark:border-emerald-500 dark:text-emerald-400" : "border-transparent text-gray-500 dark:text-tx-secondary hover:text-gray-700 dark:hover:text-tx-primary")}
                 >
                   <Activity size={16} /> Recursos Humanos
+                </button>
+                <button 
+                  onClick={() => setEmployeeTab('ordenes')} 
+                  className={cn("py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0", employeeTab === 'ordenes' ? "border-accent text-accent dark:border-emerald-500 dark:text-emerald-400" : "border-transparent text-gray-500 dark:text-tx-secondary hover:text-gray-700 dark:hover:text-tx-primary")}
+                >
+                  <CheckSquare size={16} /> Órdenes Diarias
                 </button>
               </div>
             </div>
             
             <div className="p-6 space-y-6 animate-in fade-in duration-300">
-              {employeeTab === 'ficha' ? (
+              {employeeTab === 'ordenes' ? (
+                <div className="animate-in slide-in-from-left-4 fade-in duration-300 flex flex-col gap-5">
+                  {/* Encabezado y Filtros Rápidos */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-tx-primary flex items-center gap-2">
+                        <CheckSquare size={20} className="text-emerald-500" />
+                        Órdenes de {selectedEmployeeDetail.name.split(' ')[0]}
+                      </h3>
+                      <p className="text-sm text-tx-secondary mt-0.5">Gestión de tareas y mantenimientos diarios.</p>
+                    </div>
+                    <button onClick={() => setIsEmployeeOrderModalOpen(true)} className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-500/20 hover:bg-emerald-500 transition-colors shrink-0">
+                      <Plus size={16} /> Nueva Orden
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const activeEmployeeOrders = ordenesData?.filter((o: any) => o.empleado === selectedEmployeeDetail.name) || [];
+                    const activeOrders = activeEmployeeOrders.filter((o: any) => o.status === 'en_curso');
+                    const completedOrders = activeEmployeeOrders.filter((o: any) => o.status === 'completado');
+                    const issuesOrders = activeEmployeeOrders.filter((o: any) => o.status === 'con_problemas');
+
+                    const displayedOrders = selectedOrderTab === 'activas' ? [...activeOrders, ...issuesOrders] : completedOrders;
+                    
+                    const groupedHistory = displayedOrders.reduce((acc: any, cur: any) => {
+                       const g = cur.monthGroup || 'Meses Anteriores';
+                       if (!acc[g]) acc[g] = [];
+                       acc[g].push(cur);
+                       return acc;
+                    }, {});
+
+                    const getCategoryStyles = (cat: string) => {
+                       if (cat?.includes('Pileta')) return { border: 'border-violet-500/20 hover:border-violet-500/40', shadow: 'shadow-[0_0_15px_rgba(139,92,246,0.05)]', badgeBg: 'bg-violet-50 dark:bg-violet-500/10', badgeText: 'text-violet-600 dark:text-violet-400', badgeBorder: 'border-violet-100 dark:border-violet-500/20', strip: 'bg-violet-500' };
+                       if (cat?.includes('Riego')) return { border: 'border-emerald-500/20 hover:border-emerald-500/40', shadow: 'shadow-[0_0_15px_rgba(16,185,129,0.05)]', badgeBg: 'bg-emerald-50 dark:bg-emerald-500/10', badgeText: 'text-emerald-600 dark:text-emerald-400', badgeBorder: 'border-emerald-100 dark:border-emerald-500/20', strip: 'bg-emerald-500' };
+                       if (cat?.includes('Mantenimiento')) return { border: 'border-orange-500/20 hover:border-orange-500/40', shadow: 'shadow-[0_0_15px_rgba(249,115,22,0.05)]', badgeBg: 'bg-orange-50 dark:bg-orange-500/10', badgeText: 'text-orange-600 dark:text-orange-400', badgeBorder: 'border-orange-100 dark:border-orange-500/20', strip: 'bg-orange-500' };
+                       return { border: 'border-blue-500/20 hover:border-blue-500/40', shadow: 'shadow-[0_0_15px_rgba(59,130,246,0.05)]', badgeBg: 'bg-blue-50 dark:bg-blue-500/10', badgeText: 'text-blue-600 dark:text-blue-400', badgeBorder: 'border-blue-100 dark:border-blue-500/20', strip: 'bg-blue-500' };
+                    };
+
+                    return (
+                      <>
+                        {/* Píldoras de Filtro */}
+                        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                          <button onClick={() => setSelectedOrderTab('activas')} className={cn("px-4 py-1.5 rounded-full font-bold border text-sm flex items-center gap-2 whitespace-nowrap transition-colors", selectedOrderTab === 'activas' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-main text-tx-secondary hover:text-tx-primary border-bd-lines hover:border-tx-secondary")}>
+                            Activas ({activeOrders.length})
+                          </button>
+                          <button onClick={() => setSelectedOrderTab('completadas')} className={cn("px-4 py-1.5 rounded-full font-bold border text-sm flex items-center gap-2 whitespace-nowrap transition-colors", selectedOrderTab === 'completadas' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-main text-tx-secondary hover:text-tx-primary border-bd-lines hover:border-tx-secondary")}>
+                            Completadas ({completedOrders.length})
+                          </button>
+                          <button className="px-4 py-1.5 rounded-full bg-main text-tx-secondary hover:text-red-400 font-bold border border-bd-lines hover:border-red-500/30 text-sm flex items-center gap-2 whitespace-nowrap transition-colors">
+                            Con Problemas
+                          </button>
+                        </div>
+
+                        {/* Contenido Dinámico con Estética Original */}
+                        <div className="mt-4 space-y-4">
+                            {displayedOrders.length === 0 && (
+                                <div className="p-8 text-center bg-gray-50/50 dark:bg-main border border-dashed border-gray-200 dark:border-bd-lines rounded-xl">
+                                    <CheckCircle size={32} className="mx-auto text-gray-300 dark:text-tx-secondary mb-2" />
+                                    <p className="text-sm font-bold text-gray-500 dark:text-tx-secondary">No hay órdenes para mostrar.</p>
+                                </div>
+                            )}
+
+                            {displayedOrders.map((orden: any) => {
+                              const st = getCategoryStyles(orden.category);
+                              return (
+                              <div key={orden.id} className={cn("bg-card dark:bg-card border rounded-xl p-5 relative overflow-hidden group transition-colors", st.border, st.shadow)}>
+                                <div className={cn("absolute left-0 top-0 bottom-0 w-1", orden.status === 'completado' ? 'bg-slate-500' : st.strip)}></div>
+                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => handleEditEmployeeOrder(orden)} className="p-1.5 bg-gray-100 dark:bg-slate-800 text-tx-secondary hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                    <button onClick={() => removeOrden(orden.id)} className="p-1.5 bg-gray-100 dark:bg-slate-800 text-tx-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                </div>
+                                <div className="flex justify-between items-start mb-4 pr-16 border-b border-bd-lines pb-3">
+                                  <div>
+                                    <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded mb-2 inline-block shadow-sm border", st.badgeBg, st.badgeText, st.badgeBorder)}>{orden.category}</span>
+                                    <h4 className="font-extrabold text-tx-primary text-lg leading-tight">{orden.title}</h4>
+                                    <p className="text-sm text-tx-secondary mt-1 font-medium flex items-center gap-1.5"><Activity size={14}/> {orden.location}</p>
+                                    {orden.description && <p className="text-sm text-tx-secondary mt-2 p-2 bg-gray-50 dark:bg-main rounded-lg border border-bd-lines italic">"{orden.description}"</p>}
+                                    {orden.tools && <p className={cn("text-xs font-bold mt-2 flex items-center gap-1", st.badgeText)}><Briefcase size={12}/> Recursos: {orden.tools}</p>}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                                  <span className={cn("px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-2", orden.status === 'completado' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20")}>
+                                    <Timer size={14} /> {orden.status === 'en_curso' ? 'En Curso' : 'Completado'} • {new Date(orden.date).toLocaleDateString()}
+                                  </span>
+                                  {orden.status === 'en_curso' && (
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                      <button onClick={() => setToastMessage("📂 La subida de fotografías y archivos se habilitará próximamente.")} className="flex-1 sm:flex-none px-4 bg-main text-tx-primary hover:bg-slate-800 text-sm font-bold py-2 rounded-xl border border-bd-lines transition-colors inline-flex items-center justify-center gap-2"><CheckSquare size={16}/> Archivos</button>
+                                      <button onClick={() => { updateOrden(orden.id, { status: 'completado' }); setToastMessage("✅ Obra finalizada y movida al historial completado"); }} className="flex-1 sm:flex-none px-4 bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/20 text-sm font-bold py-2 rounded-xl transition-all inline-flex items-center justify-center gap-2"><CheckCircle size={16}/> Finalizar Obra</button>
+                                    </div>
+                                  )}
+                                  {orden.status === 'completado' && (
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                      <button onClick={() => updateOrden(orden.id, { status: 'en_curso' })} className="flex-1 sm:flex-none px-4 bg-main text-tx-primary hover:bg-slate-800 text-sm font-bold py-2 rounded-xl border border-bd-lines transition-colors inline-flex items-center justify-center gap-2"><ArrowRight size={16}/> Reabrir</button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                             );
+                            })}
+                        </div>
+                      </>
+                    );
+                  })()}
+
+                </div>
+              ) : employeeTab === 'ficha' ? (
                 <div className="animate-in slide-in-from-left-4 fade-in duration-300 flex flex-col gap-5">
                   <div className="flex items-center gap-4 bg-card dark:bg-main p-4 rounded-xl border border-gray-100 dark:border-bd-lines shadow-sm shrink-0">
                     <div className="h-14 w-14 rounded-full bg-gray-200 dark:bg-slate-700 border-2 border-white dark:border-bd-lines flex items-center justify-center text-gray-500 dark:text-tx-secondary font-bold text-xl shadow-sm shrink-0">
@@ -2195,13 +2377,12 @@ export default function Personal() {
                    )}
                  </div>
                </div>
-            
-             </div>
-          )}
+              </div>
+            )}
+            </div>
+            </div>
           </div>
-          </div>
-        </div>
-      )}
+        )}
 
       {/* HR Detail Modal */}
       
@@ -2210,6 +2391,53 @@ export default function Personal() {
 
       {/* Toast Notification */}
       {/* Add New Member Modal */}
+      {isEmployeeOrderModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4">
+          <div className="bg-card dark:bg-card border border-transparent dark:border-bd-lines rounded-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
+            <div className="p-4 border-b border-gray-100 dark:border-bd-lines flex justify-between items-center bg-gray-50/50 dark:bg-main/50">
+              <h3 className="font-bold text-gray-900 dark:text-tx-primary flex items-center gap-2"><Plus size={18} className="text-accent dark:text-emerald-500" /> {newEmployeeOrder.id ? 'Editar Orden Diaria' : 'Nueva Orden Diaria'}</h3>
+              <button onClick={() => { setIsEmployeeOrderModalOpen(false); setNewEmployeeOrder({id:'', title:'', location:'', category:'Mantenimiento de Piletas', description: '', tools: '', scheduledDate: new Date().toISOString().split('T')[0]}); }} className="text-gray-400 dark:text-tx-secondary hover:text-gray-600 dark:hover:text-white p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"><X size={20} /></button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto hide-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider mb-1.5">Título / Tarea Principal</label>
+                  <input type="text" value={newEmployeeOrder.title} onChange={e => setNewEmployeeOrder({ ...newEmployeeOrder, title: e.target.value })} className="w-full rounded-xl border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 text-gray-900 dark:text-tx-primary text-sm focus:border-accent dark:focus:border-emerald-500 focus:ring-accent dark:focus:ring-emerald-500 font-bold p-3" placeholder="Ej: Reparación general de sistema..." />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider mb-1.5">Ubicación / Cliente</label>
+                  <input type="text" value={newEmployeeOrder.location} onChange={e => setNewEmployeeOrder({ ...newEmployeeOrder, location: e.target.value })} className="w-full rounded-xl border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 text-gray-900 dark:text-tx-primary text-sm focus:border-accent dark:focus:border-emerald-500 focus:ring-accent dark:focus:ring-emerald-500 font-medium p-3" placeholder="Ej: Las Palmas Lote 44" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider mb-1.5">Categoría</label>
+                  <select value={newEmployeeOrder.category} onChange={e => setNewEmployeeOrder({ ...newEmployeeOrder, category: e.target.value })} className="w-full rounded-xl border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 text-gray-900 dark:text-tx-primary text-sm focus:border-accent dark:focus:border-emerald-500 focus:ring-accent dark:focus:ring-emerald-500 font-medium p-3">
+                    <option value="Mantenimiento de Piletas">Piletas</option>
+                    <option value="Riego Automatizado">Riego</option>
+                    <option value="Desarrollo de Obra">Obra</option>
+                    <option value="Mantenimiento General">Mantenimiento</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider mb-1.5">Fecha Programada</label>
+                  <input type="date" value={newEmployeeOrder.scheduledDate} onChange={e => setNewEmployeeOrder({ ...newEmployeeOrder, scheduledDate: e.target.value })} className="w-full rounded-xl border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 text-gray-900 dark:text-tx-primary text-sm focus:border-accent dark:focus:border-emerald-500 focus:ring-accent dark:focus:ring-emerald-500 font-medium p-3" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider mb-1.5">Insumos / Herramientas</label>
+                  <input type="text" value={newEmployeeOrder.tools} onChange={e => setNewEmployeeOrder({ ...newEmployeeOrder, tools: e.target.value })} className="w-full rounded-xl border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 text-gray-900 dark:text-tx-primary text-sm focus:border-accent dark:focus:border-emerald-500 focus:ring-accent dark:focus:ring-emerald-500 font-medium p-3" placeholder="Ej: 2 Filtros, Llave inglesa..." />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-gray-500 dark:text-tx-secondary uppercase tracking-wider mb-1.5">Descripción Detallada / Protocolo</label>
+                  <textarea rows={4} value={newEmployeeOrder.description} onChange={e => setNewEmployeeOrder({ ...newEmployeeOrder, description: e.target.value })} className="w-full rounded-xl border-gray-200 dark:border-bd-lines bg-card dark:bg-slate-950 text-gray-900 dark:text-tx-primary text-sm focus:border-accent dark:focus:border-emerald-500 focus:ring-accent dark:focus:ring-emerald-500 font-medium p-3" placeholder="Describe los detalles de la visita, checklist a cumplir..." />
+                </div>
+              </div>
+              <button onClick={handleSaveEmployeeOrder} className="w-full h-14 bg-accent dark:bg-emerald-600 hover:opacity-90 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all mt-4 shadow-lg shadow-emerald-500/20 active:scale-[0.98]">
+                {newEmployeeOrder.id ? 'Guardar Cambios' : 'Generar y Asignar Orden'} <ArrowRight size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isNewMemberModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card dark:bg-card border border-transparent dark:border-bd-lines rounded-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 shadow-2xl">

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useFirestoreCollection } from '../../hooks/useFirestoreCollection';
-import { Plus, Edit2, Trash2, MapPin, Droplet, AlertTriangle, Calendar, Image as ImageIcon, UploadCloud, MessageCircle, ShoppingCart } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Droplet, AlertTriangle, Calendar, Image as ImageIcon, UploadCloud, MessageCircle, ShoppingCart, UserCircle } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -61,101 +61,118 @@ export function AditivosTab({ searchQuery, onAddToPedido }: { searchQuery: strin
         <h2 className="text-xl font-black tracking-tight text-tx-primary flex items-center gap-2">
           <Droplet className="text-blue-500" /> Químicos / Aditivos
         </h2>
-        <button onClick={() => { setIsAdding(true); setFormData({ nombre: '', cantidad: 0, unidad: 'Lts', ubicacionTipo: 'deposito', imagenUrl: '' }); }} className="flex items-center gap-2 text-sm font-bold text-white bg-accent px-4 py-2.5 rounded-xl hover:bg-[#2c4a3b] transition-all shadow-md transform hover:scale-[1.02]">
-          <Plus size={18} /> Nuevo Insumo
+        <button onClick={() => { setIsAdding(true); setFormData({ nombre: '', cantidad: 0, unidad: 'Lts', ubicacionTipo: 'deposito', imagenUrl: '' }); }} className="flex items-center gap-1.5 text-xs font-black text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+          <Plus size={14} /> Nuevo
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filtered.map(item => {
           const expired = isExpired(item.fechaCaducidad);
           return (
-            <div key={item.id} className="bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700/50 hover:shadow-xl hover:border-slate-300 dark:hover:border-slate-600 transition-all group flex flex-col">
-              <div className="relative h-48 w-full bg-slate-100 dark:bg-slate-900 overflow-hidden border-b border-slate-200 dark:border-slate-700/50">
-                <img src={item.imagenUrl || 'https://images.unsplash.com/photo-1584483758117-640a1b5c2106?auto=format&fit=crop&q=80&w=800'} alt={item.nombre} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!item.imagenUrl ? 'opacity-50 grayscale' : ''}`} />
-                <label onClick={e => e.stopPropagation()} className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-md rounded-lg text-white cursor-pointer z-10 transition-colors" title="Actualizar foto">
-                  <UploadCloud size={16} />
-                  <input type="file" className="hidden" accept="image/*" onChange={async e => {
+            <div key={item.id} className="bg-[#111827] dark:bg-[#0f172a] rounded-2xl overflow-hidden relative shadow-2xl border border-white/5 border-l-[4px] border-l-emerald-400 group transition-all flex flex-col h-full hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+              
+              {/* IMAGE HEADER */}
+              <div className="relative h-28 w-full overflow-hidden bg-slate-900">
+                <img 
+                  src={item.imagenUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.nombre || 'A')}&background=020617&color=10b981&size=512&font-size=0.4`} 
+                  alt={item.nombre} 
+                  onError={(e: any) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.nombre || 'A')}&background=020617&color=10b981&size=512`; }} 
+                  className="w-full h-full object-cover opacity-60 group-hover:bg-black/30 transition-all duration-700" 
+                />
+                
+                {/* Gradient overlay mimicking the screenshot */}
+                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors"></div>
+
+                {/* OVERLAY CONTENT */}
+                <div className="absolute bottom-3 left-6 text-white pr-20 z-10">
+                  <h4 className="font-bold text-lg leading-tight text-white mb-1 truncate drop-shadow-md">{item.nombre}</h4>
+                  <div className="flex flex-col gap-0.5">
+                    <p className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 drop-shadow-sm">
+                      <UserCircle className="w-3.5 h-3.5 text-emerald-400" /> {item.clienteNombre || 'Bodega Central'}
+                    </p>
+                    <p className="text-xs font-medium text-slate-300 flex items-center gap-1.5 drop-shadow-sm">
+                      <MapPin className="w-3.5 h-3.5 text-tx-secondary" /> {item.ubicacionTipo === 'proyecto' ? item.proyectoNombre : 'Stock Central'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* FLOATING ACTION BUTTONS (TOP RIGHT) */}
+                <div className="absolute top-3 right-3 flex gap-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <label onClick={e => e.stopPropagation()} className="p-1.5 bg-black/50 hover:bg-slate-700/80 backdrop-blur-sm rounded-lg text-tx-secondary hover:text-white cursor-pointer transition-colors" title="Actualizar foto">
+                    <UploadCloud size={16} />
+                    <input type="file" className="hidden" accept="image/*" onChange={async e => {
                       const file = e.target.files?.[0];
                       if(!file) return;
                       const storageRef = ref(storage, `inventario/aditivos/${Date.now()}_${file.name}`);
-                      try {
-                        await uploadBytes(storageRef, file);
-                        const url = await getDownloadURL(storageRef);
-                        await update(item.id, { imagenUrl: url });
-                      } catch(err) { alert('Error al subir foto'); }
-                  }} />
-                </label>
+                      try { await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); await update(item.id, { imagenUrl: url }); } catch(err) { alert('Error al subir foto'); }
+                    }} />
+                  </label>
+                  <button onClick={() => { setEditingItem(item); setFormData(item); }} className="p-1.5 bg-black/50 hover:bg-slate-700/80 backdrop-blur-sm rounded-lg text-tx-secondary hover:text-white transition-colors" title="Modificar Datos">
+                    <Edit2 size={16} />
+                  </button>
+                  <button onClick={() => { if(window.confirm('¿Borrar insumo?')) remove(item.id); }} className="p-1.5 bg-black/50 hover:bg-red-500/80 backdrop-blur-sm rounded-lg text-tx-secondary hover:text-white transition-colors" title="Eliminar">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
                 {expired && (
-                  <div className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg animate-pulse">
-                    <AlertTriangle size={14} /> Producto Vencido
+                  <div className="absolute top-3 left-3 bg-red-500/90 backdrop-blur-md text-white px-2 py-1 rounded-md text-[10px] uppercase font-bold flex items-center gap-1 z-20 animate-pulse">
+                    <AlertTriangle size={12} />
                   </div>
                 )}
-                <div className="absolute bottom-3 right-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-600 shadow-sm flex items-center gap-1 text-slate-800 dark:text-white font-black text-lg">
-                  {item.cantidad} <span className="text-sm text-slate-500 dark:text-slate-400 font-bold ml-1">{item.unidad}</span>
-                </div>
               </div>
 
-              <div className="p-5 flex-1 flex flex-col pt-6 relative items-center text-center">
-                {/* Decorative Accent Top Border */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-blue-500 rounded-b-full"></div>
-
-                <div className="flex justify-center items-start mb-3 w-full">
-                  <div className="w-full">
-                    <h3 className="text-xl font-black text-tx-primary leading-tight capitalize truncate px-2">{item.nombre}</h3>
-                    <div className="flex items-center justify-center gap-1.5 mt-2">
-                      <MapPin size={12} className={item.ubicacionTipo === 'proyecto' ? 'text-blue-500' : 'text-tx-secondary'} /> 
-                      <span className="text-xs font-bold uppercase tracking-wider text-tx-secondary truncate max-w-[200px]">{item.ubicacionTipo === 'proyecto' ? item.proyectoNombre : 'Stock Central'}</span>
+              {/* LOWER CONTENT SECTION */}
+              <div className="p-5 flex-1 flex flex-col justify-between bg-[#111827] dark:bg-[#0f172a]">
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-[10px] font-bold text-tx-secondary dark:text-tx-secondary uppercase tracking-widest">Stock Disponible</span>
+                    <span className="text-xs font-black text-tx-primary dark:text-tx-primary bg-main dark:bg-slate-700/50 px-2 py-1 rounded-md">{item.cantidad} {item.unidad}</span>
+                  </div>
+                  
+                  {/* Matching exact 'flex -space-x-2 h-8 mb-5' spacer logic from projects */}
+                  <div className="flex -space-x-2 overflow-hidden mb-5">
+                    <div className="inline-flex h-8 w-8 rounded-full ring-2 ring-white dark:ring-slate-800 bg-main dark:bg-slate-700 items-center justify-center text-emerald-400">
+                      <Droplet className="w-4 h-4" />
                     </div>
+                    {item.fechaCaducidad && !expired && (
+                      <div className="inline-flex bg-main dark:bg-slate-700 h-8 px-3 rounded-full ring-2 ring-white dark:ring-slate-800 items-center justify-center ml-2">
+                        <span className="text-[10px] font-bold text-tx-secondary dark:text-tx-secondary uppercase tracking-widest mr-1">Vence:</span>
+                        <span className="text-xs font-bold text-white px-1">{new Date(item.fechaCaducidad).toLocaleDateString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Info Blocks Vertically Stacked */}
-                <div className="mt-2 flex flex-col gap-2 mb-4 w-full text-left">
-                   <div className="bg-main px-4 py-2.5 rounded-xl border border-bd-lines flex items-center justify-between gap-3 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-tx-secondary" />
-                      <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-widest shrink-0">Sitio</span>
-                    </div>
-                    <span className="text-sm font-black text-tx-primary truncate text-right">{item.clienteNombre || 'Bodega Central'}</span>
-                  </div>
-                  <div className="bg-main px-4 py-2.5 rounded-xl border border-bd-lines flex items-center justify-between gap-3 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle size={14} className={expired ? 'text-red-500' : 'text-tx-secondary'} />
-                      <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-widest shrink-0">Vencimiento</span>
-                    </div>
-                    <span className={`text-sm font-black tabular-nums transition-colors ${expired ? 'text-red-500 font-extrabold' : 'text-tx-primary'}`}>{item.fechaCaducidad ? new Date(item.fechaCaducidad).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                </div>
-
-                {/* Main Actions */}
-                <div className="flex flex-col gap-2 w-full mb-2">
-                  <button
-                    onClick={() => onAddToPedido && onAddToPedido(item)}
-                    className="w-full bg-accent text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-[#15803d] transition-all flex items-center justify-center gap-2 shadow-md"
-                    title="Añadir a checklist de pedido"
+                {/* BOTONES ANCHOS DE ABAJO */}
+                <div className="flex flex-col gap-2 mt-auto">
+                  <button 
+                    onClick={() => onAddToPedido && onAddToPedido(item)} 
+                    className="w-full py-2 bg-slate-700/50 hover:bg-slate-600/50 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
                   >
-                    <ShoppingCart size={18} /> Pedir Traslado
+                     Checklist Pedido
                   </button>
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`Hola Argent Software, necesitamos que repongan stock del ítem: ${item.nombre}. Cliente asignado: ${item.clienteNombre || 'Bodega Central'}. (Hay ${item.cantidad || 0} restante)`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] dark:text-[#25D366] px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border border-[#25D366]/30 shadow-md"
-                    title="Enviar WhatsApp de reposición rápido"
-                  >
-                    <MessageCircle size={18} /> Reabastecer WA
-                  </a>
-                </div>
-
-                {/* Bottom Admin Actions */}
-                <div className="mt-auto pt-4 border-t border-bd-lines/50 flex gap-2 w-full">
-                  <button onClick={() => { setEditingItem(item); setFormData(item); }} className="flex-1 py-2.5 bg-card hover:bg-main text-tx-primary font-bold text-sm rounded-xl transition-colors border border-bd-lines shadow-sm flex items-center justify-center gap-2">
-                    <Edit2 size={16} className="text-tx-secondary" /> Modificar Registro
-                  </button>
-                  <button onClick={() => { if(window.confirm('¿Borrar insumo?')) remove(item.id); }} className="px-3.5 py-2.5 bg-red-50/50 dark:bg-red-500/10 text-red-500 hover:text-white hover:bg-red-500 rounded-xl transition-colors border border-red-200 dark:border-red-500/30 flex items-center justify-center shrink-0 shadow-sm">
-                    <Trash2 size={18} />
-                  </button>
+                  
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => { setEditingItem(item); setFormData(item); }} 
+                      className="flex-1 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-bold transition-all shadow-[0_4px_14px_rgba(139,92,246,0.3)] hover:-translate-y-0.5 flex justify-center items-center"
+                    >
+                      Gestionar Stock
+                    </button>
+                    
+                    <a 
+                      href={`https://wa.me/?text=${encodeURIComponent(`Hola, repongan stock del ítem: ${item.nombre}. Cliente asignado: ${item.clienteNombre || 'Bodega Central'}. (Hay ${item.cantidad || 0} restante)`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center px-4 bg-[#1e293b] hover:bg-[#25D366] hover:border-[#25D366]/30 hover:text-white text-[#25D366] border border-[#25D366]/20 rounded-xl transition-colors"
+                      title="Pedido directo por WhatsApp"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <MessageCircle size={18} />
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

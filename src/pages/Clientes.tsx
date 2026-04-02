@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useCompanyConfig } from '../hooks/useCompanyConfig';
 import { Modal } from '../components/Modal';
+import { ModalVisitaRapida } from '../components/ModalVisitaRapida';
 import { PresupuestoFormalModal } from '../components/PresupuestoFormalModal';
 import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
 import { jsPDF } from 'jspdf';
@@ -83,6 +84,7 @@ export default function Clientes() {
   const [selectedClientNotes, setSelectedClientNotes] = useState<any>(null);
   const [selectedClientProjects, setSelectedClientProjects] = useState<any>(null);
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [isVisitaRapidaOpen, setIsVisitaRapidaOpen] = useState(false);
   const [isPresupuestoModalOpen, setIsPresupuestoModalOpen] = useState(false);
   const [presupuestoInitialItems, setPresupuestoInitialItems] = useState<any[] | null>(null);
   const [isReadingPDF, setIsReadingPDF] = useState(false);
@@ -474,94 +476,111 @@ export default function Clientes() {
                   )}
                 </div>
 
-                {/* 1. BOTÓN B2B Argent Software */}
-                {!isInstalador && (
-                  <button
-                    onClick={() => setSelectedClientNotes(selectedClientMap)}
-                    className="w-full mb-4 flex items-center justify-center gap-2 py-3.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-xl text-sm font-black hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all shadow-[0_4px_20px_rgba(16,185,129,0.1)] hover:shadow-[0_4px_25px_rgba(16,185,129,0.2)] active:scale-[0.98]"
-                    title="Gestionar Adjuntos y Presupuestos"
-                  >
-                    <Package size={18} />
-                    ADJUNTOS Y COTIZACIONES
-                  </button>
-                )}
+                {/* Action Buttons Container */}
+                <div className="flex flex-col gap-3 mb-4">
+                  {/* BOTON NUEVO: REGISTRAR VISITA (Violeta Radiactivo) */}
+                  {!isInstalador && selectedClientMap.status !== 'EN ESPERA' && (
+                    <button
+                      onClick={() => setIsVisitaRapidaOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 bg-violet-600 text-white rounded-xl text-sm font-black hover:bg-violet-500 transition-all shadow-[0_0_20px_rgba(139,92,246,0.6)] active:scale-[0.98] border border-violet-400"
+                    >
+                      <CheckCircle2 size={18} />
+                      REGISTRAR VISITA / DOSIFICAR
+                    </button>
+                  )}
 
-                {/* 2. BOTON PROTAGONICO GESTOR DE OBRAS (SOLO SI NO ESTA EN ESPERA) */}
-                {!isInstalador && selectedClientMap.status !== 'EN ESPERA' && (
-                  <button
-                    onClick={() => navigate('/trabajos')}
-                    className="w-full mb-3 flex items-center justify-center gap-2 text-sm font-black text-white bg-accent py-3.5 rounded-xl shadow-[0_4px_20px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_25px_rgba(16,185,129,0.5)] transition-all active:scale-[0.98] border border-white/10"
-                  >
-                    <Wrench size={18} />
-                    Abrir Gestor de Obras
-                  </button>
-                )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* BOTON PROTAGONICO GESTOR DE OBRAS */}
+                    {!isInstalador && selectedClientMap.status !== 'EN ESPERA' && (
+                      <button
+                        onClick={() => navigate('/trabajos')}
+                        className="w-full flex items-center justify-center gap-2 text-xs font-black text-white bg-accent py-3 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.4)] transition-all active:scale-[0.98]"
+                        title="Abrir Gestor de Obras"
+                      >
+                        <Wrench size={16} />
+                        Gestor de Obras
+                      </button>
+                    )}
 
-                {/* 3. BOTÓN PRESUPUESTO PDF (SOLO SI NO ESTA EN ESPERA) */}
-                {!isInstalador && selectedClientMap.status !== 'EN ESPERA' && (
-                  <button
-                    onClick={() => { setIsPresupuestoModalOpen(true); }}
-                    className="w-full mb-4 flex items-center justify-center gap-2 py-3 bg-main border border-bd-lines text-tx-primary rounded-xl text-xs font-bold hover:bg-card hover:border-accent/40 transition-all group shadow-inner"
-                    title="Generar Presupuesto Formal (PDF)"
-                  >
-                    <FileText size={16} className="text-tx-secondary group-hover:text-accent transition-colors" />
-                    GENERAR PRESUPUESTO PDF
-                  </button>
-                )}
+                    {/* BOTÓN B2B Adjuntos */}
+                    {!isInstalador && (
+                      <button
+                        onClick={() => setSelectedClientNotes(selectedClientMap)}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-xs font-black hover:bg-emerald-100 transition-all shadow-sm active:scale-[0.98]"
+                        title="Gestionar Adjuntos y Presupuestos"
+                      >
+                        <Package size={16} />
+                        Cotizaciones
+                      </button>
+                    )}
+                  </div>
 
+                  {/* BOTÓN PRESUPUESTO PDF */}
+                  {!isInstalador && selectedClientMap.status !== 'EN ESPERA' && (
+                    <button
+                      onClick={() => { setIsPresupuestoModalOpen(true); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-card border border-bd-lines text-tx-secondary rounded-xl text-xs font-bold hover:bg-main hover:text-tx-primary transition-all shadow-sm"
+                      title="Generar Presupuesto Formal (PDF)"
+                    >
+                      <FileText size={16} />
+                      Generar PDF (Presupuesto)
+                    </button>
+                  )}
+                </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                {/* BOTONES PEQUEÑOS DE ACCION RÁPIDA (Colorizados y redondos) */}
+                <div className="grid grid-cols-4 gap-2 pt-2 border-t border-bd-lines border-dashed">
                   <button
                     onClick={() => window.open(`https://maps.google.com/?q=${selectedClientMap.lat},${selectedClientMap.lng}`, '_blank')}
-                    className="flex flex-col items-center justify-center py-2.5 bg-main border border-bd-lines text-tx-secondary rounded-xl text-[10px] font-bold hover:bg-card hover:text-blue-500 hover:border-blue-500/30 transition-all shadow-inner group"
+                    className="flex flex-col items-center justify-center py-2.5 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-bold hover:bg-blue-100 transition-all shadow-sm"
                     title="Google Maps"
                   >
-                    <MapPin size={18} className="mb-1.5 opacity-70 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                    Maps
+                    <MapPin size={18} className="mb-1" />
+                    Ruta
                   </button>
+                  
                   <button
                     onClick={() => window.open(`https://wa.me/${selectedClientMap.phone.replace(/[^0-9]/g, '')}`, '_blank')}
-                    className="flex flex-col items-center justify-center py-2.5 bg-main border border-bd-lines text-tx-secondary rounded-xl text-[10px] font-bold hover:bg-card hover:text-emerald-500 hover:border-emerald-500/30 transition-all shadow-inner group"
+                    className="flex flex-col items-center justify-center py-2.5 bg-green-50 text-green-600 rounded-xl text-[10px] font-bold hover:bg-green-100 transition-all shadow-sm"
                     title="WhatsApp"
                   >
-                    <MessageCircle size={18} className="mb-1.5 opacity-70 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                    <MessageCircle size={18} className="mb-1" />
                     Chat
                   </button>
-                  <button
-                    onClick={() => setSelectedClientNotes(selectedClientMap)}
-                    className="flex flex-col items-center justify-center py-2.5 bg-main border border-bd-lines text-tx-secondary rounded-xl text-[10px] font-bold hover:bg-card hover:text-tx-primary hover:border-white/20 transition-all shadow-inner group"
-                    title="Anotaciones"
-                  >
-                    <Clock size={18} className="mb-1.5 opacity-70 group-hover:opacity-100" />
-                    Historial
-                  </button>
+
                   {!isInstalador && (
                     <button
                       onClick={() => { setEditingClient(selectedClientMap); }}
-                      className="flex flex-col items-center justify-center py-2.5 bg-main border border-bd-lines text-tx-secondary rounded-xl text-[10px] font-bold hover:bg-card hover:text-tx-primary hover:border-white/20 transition-all shadow-inner group"
-                      title="Editar"
+                      className="flex flex-col items-center justify-center py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-bold hover:bg-slate-200 transition-all shadow-sm"
+                      title="Editar Perfil"
                     >
-                      <Edit2 size={18} className="mb-1.5 opacity-70 group-hover:opacity-100" />
+                      <Edit2 size={18} className="mb-1" />
                       Editar
                     </button>
                   )}
+
                   {!isInstalador && (
                     <button
                       onClick={() => { setSelectedClientMap(null); handleDeleteClient(selectedClientMap.id); }}
-                      className="flex flex-col items-center justify-center py-2.5 bg-main border border-bd-lines text-tx-secondary rounded-xl text-[10px] font-bold hover:bg-card hover:text-red-500 hover:border-red-500/30 transition-all shadow-inner group"
-                      title="Eliminar"
+                      className="flex flex-col items-center justify-center py-2.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-bold hover:bg-red-100 transition-all shadow-sm"
+                      title="Eliminar Cuenta"
                     >
-                      <Trash2 size={18} className="mb-1.5 opacity-70 group-hover:opacity-100 group-hover:drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                      <Trash2 size={18} className="mb-1" />
                       Borrar
                     </button>
                   )}
-                  <div className="col-span-1"></div>
                 </div>
               </div>
             </div>
           )}
         </div>
       </main>
+
+      <ModalVisitaRapida 
+        isOpen={isVisitaRapidaOpen} 
+        onClose={() => setIsVisitaRapidaOpen(false)} 
+        client={selectedClientMap} 
+      />
 
       <Modal
         isOpen={!!editingClient || isAddingClient}
