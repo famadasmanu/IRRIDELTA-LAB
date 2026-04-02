@@ -317,18 +317,30 @@ export default function Inicio() {
  <h1 className="text-tx-primary text-xl font-bold leading-tight tracking-tight">{profileData.nombre}</h1>
  </div>
  </div>
- <div className="flex gap-4 items-center">
+ <div className="flex gap-2 sm:gap-4 items-center">
+  <button
+  onClick={() => window.open('https://calendar.google.com/calendar/u/0/r', '_blank')}
+  className="flex size-10 sm:size-12 items-center justify-center rounded-full hover:bg-main transition-colors relative group"
+  title="Mi Agenda"
+  >
+  <Calendar className="size-5 sm:size-6 text-tx-secondary group-hover:text-accent transition-colors" />
+  {(todayJobs.length + calendarEvents.length) > 0 && (
+  <span className="absolute top-0 sm:top-1 right-0 sm:right-1 w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center bg-red-500 text-white text-[9px] sm:text-[10px] font-bold rounded-full border border-card shadow-sm">
+  {(todayJobs.length + calendarEvents.length) > 9 ? '9+' : (todayJobs.length + calendarEvents.length)}
+  </span>
+  )}
+  </button>
   <button
   onClick={() => navigate('/notificaciones')}
- className="flex size-12 items-center justify-center rounded-full hover:bg-main transition-colors relative"
- >
- <Bell className="size-6 text-tx-secondary dark:text-tx-secondary" />
- {unreadAlertsCounter > 0 && (
- <span className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white">
- {unreadAlertsCounter > 9 ? '9+' : unreadAlertsCounter}
- </span>
- )}
- </button>
+  className="flex size-10 sm:size-12 items-center justify-center rounded-full hover:bg-main transition-colors relative"
+  >
+  <Bell className="size-5 sm:size-6 text-tx-secondary dark:text-tx-secondary" />
+  {unreadAlertsCounter > 0 && (
+  <span className="absolute top-0 sm:top-1 right-0 sm:right-1 w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center bg-red-500 text-white text-[9px] sm:text-[10px] font-bold rounded-full border border-card shadow-sm">
+  {unreadAlertsCounter > 9 ? '9+' : unreadAlertsCounter}
+  </span>
+  )}
+  </button>
  </div>
  </header>
 
@@ -543,48 +555,6 @@ export default function Inicio() {
   </div>
   )}
 
-  {/* Agenda de Hoy Widget */}
-  <section className="bg-card rounded-2xl p-6 shadow-sm border border-bd-lines">
- <div className="flex items-center justify-between mb-6">
- <div className="flex items-center gap-3">
- <Calendar className="size-6 text-accent" />
- <h2 className="text-tx-primary text-xl font-bold tracking-tight">Agenda de Hoy</h2>
- </div>
- <button onClick={() => window.open('https://calendar.google.com/calendar/u/0/r', '_blank')} className="text-accent text-sm font-semibold hover:underline">Ver Google Calendar</button>
- </div>
- 
- <div className="space-y-4">
- {todayJobs.length > 0 ? todayJobs.map((job: any) => (
- <button type="button" key={job.id} onClick={() => window.open('https://calendar.google.com/calendar/u/0/r', '_blank')} className="w-full text-left flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-main rounded-xl border border-bd-lines cursor-pointer hover:shadow-sm hover:border-accent transition-all group gap-4 appearance-none outline-none">
- <div className="flex items-center gap-4 w-full sm:w-auto">
- <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
- <Briefcase className="size-6 text-accent" />
- </div>
- <div className="flex-1 min-w-0">
- <h3 className="font-bold text-tx-primary group-hover:text-accent transition-colors truncate">{job.titulo}</h3>
- <p className="text-sm text-tx-secondary flex items-center gap-1 mt-1 truncate">
- <MapPin size={14} className="shrink-0" /> <span className="truncate">{job.ubicacion || 'Sin ubicación'}</span> • {job.cliente}
- </p>
- </div>
- </div>
- <div className={cn(
- "px-3 py-1 text-xs font-bold rounded-full whitespace-nowrap",
- job.estado === 'Completado' ? "bg-green-500/10 text-green-500 border border-green-500/20" :
- job.estado === 'En Proceso' ? "bg-blue-500/10 text-blue-500 border border-blue-500/20" :
- "bg-orange-500/10 text-orange-500 border border-orange-500/20"
- )}>
- {job.estado}
- </div>
- </button>
- )) : (
- <div className="text-center py-8 bg-main rounded-xl border border-dashed border-bd-lines">
- <Calendar className="size-12 text-tx-secondary mx-auto mb-3 opacity-50" />
- <p className="text-tx-secondary font-medium">No hay trabajos programados para hoy</p>
- <button type="button" onClick={() => navigate('/trabajos?action=new')} className="mt-4 px-5 py-2.5 bg-accent text-white text-sm font-bold rounded-xl shadow-sm hover:bg-accent transition-colors border border-transparent">Programar Trabajo</button>
-        </div>
-      )}
-      </div>
-    </section>
 
     {/* Socios Estratégicos */}
     <section className="bg-card rounded-2xl p-6 shadow-sm border border-bd-lines">

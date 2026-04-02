@@ -246,6 +246,9 @@ type Pago = {
    return sum + (isNaN(val) ? 0 : val);
  }, 0);
  const totalIngresosObras = trabajosRaw.reduce((sum, t) => {
+   const ingresosVendidosNum = parseFloat(String(t.ingresosVendidos || 0).replace(/[^0-9.-]+/g, ""));
+   if (ingresosVendidosNum > 0) return sum + ingresosVendidosNum;
+   
    const gastos = parseFloat(String(t.gastos || 0).replace(/[^0-9.-]+/g, ""));
    const rent = parseFloat(String(t.rentabilidad || 0).replace(/[^0-9.-]+/g, ""));
    if (rent === 0) return sum + gastos;
@@ -641,13 +644,21 @@ type Pago = {
  <div className="space-y-4">
  {trabajosRaw.map((t: any) => {
  const gastos = Number(t.gastos) || 0;
- const rentabilidadPercent = Number(t.rentabilidad) || 0;
- const ingresosGenerados = rentabilidadPercent === 100 ? gastos * 2 : (gastos / (1 - (rentabilidadPercent / 100)));
+ const ingresosVendidosNum = Number(t.ingresosVendidos) || 0;
+ 
+ let ingresosGenerados = ingresosVendidosNum;
+ let rentabilidadPercent = ingresosGenerados > 0 ? Math.round(((ingresosGenerados - gastos) / ingresosGenerados) * 100) : (gastos > 0 ? -100 : 0);
+
  const beneficio = ingresosGenerados - gastos;
+ // Se eliminó isProyeccion porque ahora es 100% estricto a ingresos reales
+ const isProyeccion = false;
  return (
  <div key={t.id} className="bg-card rounded-2xl p-5 shadow-sm border border-bd-lines flex flex-col md:flex-row gap-4 items-center justify-between hover:shadow-md transition-shadow">
  <div className="flex-1 w-full text-center md:text-left">
- <h3 className="font-bold text-tx-primary text-base">{t.titulo}</h3>
+ <div className="flex items-center gap-2 justify-center md:justify-start">
+    <h3 className="font-bold text-tx-primary text-base">{t.titulo}</h3>
+    {isProyeccion && <span className="text-[9px] font-bold bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full border border-yellow-500/20">PROYECCIÓN</span>}
+ </div>
  <p className="text-xs text-tx-secondary mt-1 max-w-[300px] truncate mx-auto md:mx-0">{t.ubicacion || 'Sin ubicación'} | {t.cliente || 'Sin cliente'}</p>
  </div>
  <div className="flex shrink-0 w-full md:w-auto gap-4 md:gap-8 justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0 border-bd-lines mt-2 md:mt-0 items-center">

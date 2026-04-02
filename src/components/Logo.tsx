@@ -5,6 +5,7 @@ export const Logo = ({ className = '' }: { className?: string }) => {
     <img 
       src="/logo.png?v=3" 
       alt="Argen Software" 
+      style={{ imageRendering: 'high-quality' as any }}
       className={`object-contain ${className}`}
     />
   );

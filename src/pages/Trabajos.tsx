@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Search, Filter, MapPin, Calendar, Plus, Image as ImageIcon, FileText, Trash2, MoreVertical, Edit2, ArrowLeft, TrendingUp, DollarSign, Clock as ClockIcon, Activity, Save, Download, Check, Map as MapIcon, X, Tag, User, Link as LinkIcon, Package, Folder, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Modal } from '../components/Modal';
@@ -91,7 +91,7 @@ export default function Trabajos() {
     const [editLng, setEditLng] = useState<number | null>(null);
 
     const [selectedTrabajo, setSelectedTrabajo] = useState<any>(null);
-    const [metricsForm, setMetricsForm] = useState<{ gastos: number | string, rentabilidad: number | string, gastoDistancia: number | string, fechaInicio: string, estado: string }>({ gastos: '', rentabilidad: '', gastoDistancia: '', fechaInicio: '', estado: 'En Proceso' });
+    const [metricsForm, setMetricsForm] = useState<{ gastos: number | string, ingresosVendidos: number | string, rentabilidad: number | string, gastoDistancia: number | string, fechaInicio: string, estado: string }>({ gastos: '', ingresosVendidos: '', rentabilidad: '', gastoDistancia: '', fechaInicio: '', estado: 'En Proceso' });
     const [gastosDetalle, setGastosDetalle] = useState<any[]>([]);
 
     // States for Trabajos Pactados
@@ -116,7 +116,8 @@ export default function Trabajos() {
     const { data: clientesData } = useFirestoreCollection<any>('clientes');
     const { data: invData, add: addInv, update: updateInv } = useFirestoreCollection<any>('inventario_generales');
 
-    const [searchQuery, setSearchQuery] = useState('');
+    const location = useLocation();
+    const [searchQuery, setSearchQuery] = useState(location.state?.clientName || '');
     const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
     const [expandedNoteId, setExpandedNoteId] = useState<number | null>(null);
     const [showFilters, setShowFilters] = useState(false);
@@ -335,6 +336,7 @@ export default function Trabajos() {
         setSelectedTrabajo(trabajo);
         setMetricsForm({
             gastos: trabajo.gastos || '',
+            ingresosVendidos: trabajo.ingresosVendidos || '',
             rentabilidad: trabajo.rentabilidad !== undefined && trabajo.rentabilidad !== '' ? trabajo.rentabilidad : 50,
             gastoDistancia: trabajo.gastoDistancia || '',
             fechaInicio: trabajo.fechaInicio || new Date().toISOString().split('T')[0],
@@ -343,9 +345,9 @@ export default function Trabajos() {
         setGastosDetalle(trabajo.gastosDetalle || []);
     };
 
-    const gastosToUse = gastosDetalle.length > 0
+    const gastosToUse = (Number(metricsForm.gastos) || 0) + (gastosDetalle.length > 0
         ? gastosDetalle.reduce((acc, item) => acc + ((Number(item.cantidad) || 0) * (Number(item.precioUnitario) || 0)), 0)
-        : Number(metricsForm.gastos) || 0;
+        : 0);
 
     const handleSaveMetrics = async () => {
         if (!selectedTrabajo) return;
@@ -371,6 +373,7 @@ export default function Trabajos() {
 
         const updateData: any = {
             gastos: gastosToUse,
+            ingresosVendidos: Number(metricsForm.ingresosVendidos) || 0,
             rentabilidad: Number(metricsForm.rentabilidad) || 0,
             gastoDistancia: Number(metricsForm.gastoDistancia) || 0,
             fechaInicio: metricsForm.fechaInicio,
@@ -1050,23 +1053,33 @@ export default function Trabajos() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-tx-primary mb-1">Gastos Totales ($)</label>
+                                        <label className="block text-sm font-medium text-tx-primary mb-1">Gasto Fijo / Mano de Obra ($)</label>
                                         <input
                                             type="number"
-                                            value={gastosDetalle.length > 0 ? gastosToUse : metricsForm.gastos}
+                                            value={metricsForm.gastos}
                                             onChange={e => setMetricsForm({ ...metricsForm, gastos: e.target.value === '' ? '' : Number(e.target.value) })}
-                                            disabled={gastosDetalle.length > 0}
-                                            className={cn("w-full px-4 py-2 border border-bd-lines rounded-xl focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none", gastosDetalle.length > 0 && "bg-gray-100 text-tx-secondary")}
+                                            className="w-full px-4 py-2 border border-bd-lines rounded-xl focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-main"
                                         />
-                                        {gastosDetalle.length > 0 && <p className="text-xs text-tx-secondary mt-1">Calculado automáticamente desde el desglose.</p>}
+                                        {gastosDetalle.length > 0 && <p className="text-xs text-accent font-bold mt-1">¡El Desglose de Gastos se suma automáticamente a este valor! (${gastosToUse})</p>}
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-tx-primary mb-1">Rentabilidad Estimada (%)</label>
+                                        <label className="block text-sm font-medium text-tx-primary mb-1">Monto de Venta / Ingresos ($)</label>
+                                        <input
+                                            type="number"
+                                            value={metricsForm.ingresosVendidos}
+                                            onChange={e => setMetricsForm({ ...metricsForm, ingresosVendidos: e.target.value === '' ? '' : Number(e.target.value) })}
+                                            className="w-full px-4 py-2 border border-bd-lines rounded-xl focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-main text-blue-600 font-bold"
+                                            placeholder="Ej: 15000000 (Opcional, anula la %)"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-tx-secondary mb-1">Rentabilidad Esperada / Deseada (%)</label>
                                         <input
                                             type="number"
                                             value={metricsForm.rentabilidad}
                                             onChange={e => setMetricsForm({ ...metricsForm, rentabilidad: e.target.value === '' ? '' : Number(e.target.value) })}
-                                            className="w-full px-4 py-2 bg-main border border-bd-lines rounded-xl focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
+                                            className="w-full px-3 py-1.5 bg-main border border-bd-lines rounded-xl focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none text-sm text-tx-secondary opacity-70"
+                                            placeholder="50"
                                         />
                                     </div>
                                     <div>
@@ -1487,7 +1500,8 @@ export default function Trabajos() {
                         </div>
                     ))}
                 </div>
-            )}\n\n            <Modal
+            )}
+            <Modal
                 isOpen={isMapPickerOpen}
                 onClose={() => setIsMapPickerOpen(false)}
                 title="Marcar Ubicación"

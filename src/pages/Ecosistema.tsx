@@ -44,7 +44,7 @@ export default function Ecosistema() {
   let totalMarcas = 0;
 
   (trabajosRaw || []).forEach(trabajo => {
-    if (trabajo.estado === 'Completado' && Array.isArray(trabajo.gastosDetalle)) {
+    if (Array.isArray(trabajo.gastosDetalle)) {
       trabajo.gastosDetalle.forEach((gasto: any) => {
         // Conteos de Marcas
         if (gasto.marca && gasto.marca !== '' && gasto.marca !== 'Otra' && gasto.marca !== 'Personal') {
@@ -124,7 +124,7 @@ export default function Ecosistema() {
   });
 
   (trabajosRaw || []).forEach(trabajo => {
-      if (trabajo.estado === 'Completado' && Array.isArray(trabajo.gastosDetalle)) {
+      if (Array.isArray(trabajo.gastosDetalle)) {
         trabajo.gastosDetalle.forEach((gasto: any) => {
           if (gasto.marca && gasto.marca !== '' && gasto.marca !== 'Otra' && gasto.marca !== 'Personal') {
               if (!brandFunnelMap[gasto.marca]) brandFunnelMap[gasto.marca] = { cotizado: 0, vendido: 0 };
@@ -162,7 +162,7 @@ export default function Ecosistema() {
   });
 
   (trabajosRaw || []).forEach(trabajo => {
-    if (trabajo.estado === 'Completado' && (trabajo.ubicacion || trabajo.zona)) {
+    if ((trabajo.ubicacion || trabajo.zona)) {
        const zonaStr = trabajo.ubicacion || trabajo.zona;
        if (!geoDemandMap[zonaStr]) geoDemandMap[zonaStr] = { demand: 0, conversions: 0 };
        geoDemandMap[zonaStr].conversions += 1; // 1 obra terminada
@@ -312,7 +312,7 @@ export default function Ecosistema() {
             </div>
             <div className="relative z-10 mb-6 md:mb-0 max-w-2xl">
                <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Tu Comunidad Oficial en WhatsApp</h2>
-               <p className="text-accent/20 text-base md:text-lg font-medium leading-relaxed">
+               <p className="text-white/90 text-base md:text-lg font-medium leading-relaxed">
                  Únete al grupo cerrado de instaladores, paisajistas y técnicos de Argent Software. Conversa sin intermediarios.
                </p>
             </div>

@@ -118,6 +118,11 @@ export default function ActividadReciente() {
  const response = await fetch(`/api/auth/url?redirectUri=${encodeURIComponent(redirectUri)}`);
  
  if (!response.ok) {
+ const errData = await response.json().catch(() => null);
+ if (errData?.error === "CREDENCIALES_FALTANTES") {
+ alert('Bloqueo de Autorización: No se encontraron las credenciales de Google (Client ID y Secret) en el archivo .env. Debes crearlas en Google Cloud Console para tu dominio de producción y añadirlas para que la sincronización funcione.');
+ return;
+ }
  throw new Error('Failed to get auth URL');
  }
  
@@ -134,7 +139,7 @@ export default function ActividadReciente() {
  }
  } catch (error) {
  console.error('OAuth error:', error);
- alert('Error al iniciar la conexión con Google Calendar.');
+ alert('Error al iniciar la conexión con Google Calendar. Verifica que la aplicación tenga conexión a tu servidor.');
  }
  };
 

@@ -10,7 +10,7 @@ import { useCompanyConfig } from '../hooks/useCompanyConfig';
 import { Modal } from '../components/Modal';
 import { ModalVisitaRapida } from '../components/ModalVisitaRapida';
 import { PresupuestoFormalModal } from '../components/PresupuestoFormalModal';
-import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import { jsPDF } from 'jspdf';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyDTrhgjJJBKfB8vG5RmuyymqY3pnORX-xI";
@@ -43,6 +43,59 @@ function PickerMapController({ pos }: { pos: {lat: number, lng: number} | null }
     }
   }, [pos, map]);
   return null;
+}
+
+import { useMapsLibrary } from '@vis.gl/react-google-maps';
+
+function AutocompleteAddressInput({ value, onChange, onPlaceSelected }: { value: string, onChange: (v: string) => void, onPlaceSelected: (addr: string, lat: number, lng: number) => void }) {
+  const placesLib = useMapsLibrary('places');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (!placesLib || !inputRef.current) return;
+    const autocomplete = new placesLib.Autocomplete(inputRef.current, {
+      componentRestrictions: { country: 'ar' },
+      fields: ['geometry', 'formatted_address']
+    });
+    
+    // Prevent Enter from submitting the form if selecting address
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        const itemHovered = document.querySelector('.pac-item-selected') || document.querySelector('.pac-item:hover');
+        if (itemHovered) {
+          e.preventDefault();
+        }
+      }
+    };
+    inputRef.current.addEventListener('keydown', handleKeyDown);
+
+    const listener = autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      if (place.geometry?.location && place.formatted_address) {
+         onPlaceSelected(place.formatted_address, place.geometry.location.lat(), place.geometry.location.lng());
+      }
+    });
+
+    return () => {
+      if (inputRef.current) inputRef.current.removeEventListener('keydown', handleKeyDown);
+      window.google.maps.event.removeListener(listener);
+    };
+  }, [placesLib]);
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      required
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => { 
+        if (e.key === 'Enter') e.preventDefault(); 
+      }}
+      className="w-full px-4 py-2 bg-main border border-bd-lines rounded-xl text-tx-primary focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
+      placeholder="Escribe la dirección y selecciona de la lista..."
+    />
+  );
 }
 
 const getIcon = (name: string) => {
@@ -284,7 +337,7 @@ export default function Clientes() {
         isFinished: newClient.status === 'FINALIZADO',
         icon1: 'MapPin',
         icon2: 'Calendar',
-        image: newClient.image || 'https://picsum.photos/seed/client/200/200'
+        image: newClient.image || `https://picsum.photos/seed/${Math.random().toString(36).substring(7)}/200/200`
       };
 
       await addClientToDB(clientToAdd);
@@ -369,6 +422,11 @@ export default function Clientes() {
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {filteredClients.map((client: any) => {
               const isActive = selectedClientMap?.id === client.id;
+              // Fix repetition of the fallback generic client image for older clients
+              const displayedImage = client.image === 'https://picsum.photos/seed/client/200/200' 
+                ? `https://picsum.photos/seed/${client.id}/200/200` 
+                : client.image;
+
               return (
                 <div
                   key={client.id}
@@ -383,12 +441,12 @@ export default function Clientes() {
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div
                         className="size-10 rounded-full bg-cover bg-center border border-bd-lines shrink-0 shadow-sm"
-                        style={{ backgroundImage: `url('${client.image}')` }}
+                        style={{ backgroundImage: `url('${displayedImage}')` }}
                       />
                       <h3 className={`font-black text-lg tracking-tight line-clamp-1 transition-colors ${isActive ? 'text-accent' : 'text-tx-primary group-hover:text-accent'}`}>{client.name}</h3>
                     </div>
                   </div>
-                  <p className="text-xs text-tx-secondary line-clamp-1 flex items-center gap-1.5 mt-2 pl-2"><MapPin size={12} />{client.location}</p>
+                  <p className="text-xs font-semibold text-tx-secondary font-display line-clamp-1 flex items-center gap-1.5 mt-2 pl-2"><MapPin size={12} />{client.location}</p>
                 </div>
               )
             })}
@@ -404,6 +462,7 @@ export default function Clientes() {
         <div className="flex-1 bg-main rounded-2xl shadow-sm border border-bd-lines overflow-hidden relative z-0 min-h-[400px]">
           <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
             <Map 
+               mapId="d2c3fdc28fa406cb"
                defaultCenter={{lat: -34.6037, lng: -58.3816}} 
                defaultZoom={10} 
                gestureHandling={'greedy'}
@@ -412,20 +471,21 @@ export default function Clientes() {
               <MapController clients={filteredClients} selectedClient={selectedClientMap} />
               
               {filteredClients.map((client: any) => {
-                // Crear objeto de ícono para Marker tradicional si hay imagen redonda
-                const markerIcon = client.image ? {
-                  url: client.image,
-                  scaledSize: window?.google?.maps?.Size ? new window.google.maps.Size(44, 44) : null,
-                } : undefined;
+                const displayedImage = client.image === 'https://picsum.photos/seed/client/200/200' 
+                   ? `https://picsum.photos/seed/${client.id}/200/200` 
+                   : client.image;
 
                 return client.lat && client.lng && (
-                  <Marker
+                  <AdvancedMarker
                     key={client.id}
                     position={{lat: client.lat, lng: client.lng}}
                     onClick={() => setSelectedClientMap(client)}
                     title={client.name}
-                    icon={markerIcon}
-                  />
+                  >
+                    <div className="size-11 rounded-full border-[3px] border-white shadow-xl overflow-hidden bg-white/90 backdrop-blur-sm cursor-pointer hover:scale-110 transition-transform">
+                      <img src={displayedImage} className="w-full h-full object-cover" alt={client.name} />
+                    </div>
+                  </AdvancedMarker>
                 );
               })}
             </Map>
@@ -441,10 +501,10 @@ export default function Clientes() {
                 >
                   <X size={20} />
                 </button>
-                <div className="flex gap-4 items-start mb-4 pr-6">
+                  <div className="flex gap-4 items-start mb-4 pr-6">
                   <div
-                    className={`size-14 rounded-xl bg-cover bg-center border border-bd-lines shrink-0 ${selectedClientMap.isFinished ? 'grayscale' : ''}`}
-                    style={{ backgroundImage: `url('${selectedClientMap.image}')` }}
+                    className={`size-14 rounded-full shadow-md bg-cover bg-center border-2 border-white shrink-0 ${selectedClientMap.isFinished ? 'grayscale' : ''}`}
+                    style={{ backgroundImage: `url('${selectedClientMap.image === 'https://picsum.photos/seed/client/200/200' ? ('https://picsum.photos/seed/' + selectedClientMap.id + '/200/200') : selectedClientMap.image}')` }}
                   />
                   <div>
                     <h3 className="text-lg font-black text-tx-primary leading-tight mb-1">{selectedClientMap.name}</h3>
@@ -452,8 +512,8 @@ export default function Clientes() {
                 </div>
 
                 <div className="space-y-2 mb-5">
-                  <div className="flex items-center gap-2 text-xs text-tx-secondary">
-                    <MapPin size={14} className="text-accent" />
+                  <div className="flex items-center gap-2 text-xs font-medium text-tx-secondary">
+                    <MapPin size={14} className="text-accent shrink-0" />
                     <span>{selectedClientMap.location}</span>
                   </div>
                   {selectedClientMap.fechaInicioPactada && (
@@ -493,7 +553,7 @@ export default function Clientes() {
                     {/* BOTON PROTAGONICO GESTOR DE OBRAS */}
                     {!isInstalador && selectedClientMap.status !== 'EN ESPERA' && (
                       <button
-                        onClick={() => navigate('/trabajos')}
+                        onClick={() => navigate('/trabajos', { state: { clientName: selectedClientMap.name } })}
                         className="w-full flex items-center justify-center gap-2 text-xs font-black text-white bg-accent py-3 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.4)] transition-all active:scale-[0.98]"
                         title="Abrir Gestor de Obras"
                       >
@@ -634,54 +694,26 @@ export default function Clientes() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-tx-secondary mb-1">Ubicación</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  required
-                  value={editingClient ? editingClient.location : newClient.location}
-                  onChange={e => editingClient ? setEditingClient({ ...editingClient, location: e.target.value }) : setNewClient({ ...newClient, location: e.target.value })}
-                  className="flex-1 px-4 py-2 bg-main border border-bd-lines rounded-xl text-tx-primary focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
-                  placeholder="Ej: Belgrano 3375, Benavidez"
-                />
+              <label className="block text-sm font-medium text-tx-secondary mb-1">Dirección (Autocompletado Google)</label>
+              <div className="flex flex-col gap-2">
+                <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+                  <AutocompleteAddressInput 
+                    value={editingClient ? editingClient.location : newClient.location}
+                    onChange={(val) => editingClient ? setEditingClient({...editingClient, location: val}) : setNewClient({...newClient, location: val})}
+                    onPlaceSelected={(addr, lat, lng) => editingClient ? setEditingClient({...editingClient, location: addr, lat, lng}) : setNewClient({...newClient, location: addr, lat, lng})}
+                  />
+                </APIProvider>
+              </div>
+              <div className="flex items-center justify-between mt-2 gap-2">
+                <span className="text-[10px] text-tx-secondary flex-1">Escribe la dirección y selecciona la opción correcta del menú desplegable de Google.</span>
                 <button
                   type="button"
-                  onClick={async () => {
-                    const locText = editingClient ? editingClient.location : newClient.location;
-                    if (locText) {
-                      try {
-                        let searchTerm = locText;
-                        if (!searchTerm.toLowerCase().includes('argentina') && !searchTerm.toLowerCase().includes('buenos aires') && !searchTerm.toLowerCase().includes('caba')) {
-                          searchTerm += ", Provincia de Buenos Aires, Argentina";
-                        } else if (!searchTerm.toLowerCase().includes('argentina')) {
-                          searchTerm += ", Argentina";
-                        }
-
-                        // Búsqueda Inteligente usando Google Maps Geocoding API con la LLave Global
-                        const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(searchTerm)}&key=${GOOGLE_MAPS_API_KEY}`);
-                        const data = await res.json();
-                        
-                        if (data.status === 'OK' && data.results && data.results.length > 0) {
-                           const location = data.results[0].geometry.location;
-                           const lat = location.lat;
-                           const lng = location.lng;
-                           
-                           if (editingClient) setEditingClient({ ...editingClient, lat, lng });
-                           else setNewClient({ ...newClient, lat, lng });
-                        } else {
-                           console.warn("Google Maps no encontró la ubicación exacta. Fallback activado.");
-                        }
-                      } catch(e) {
-                         console.error("Geocoding failed", e);
-                      }
-                    }
-                    setIsMapPickerOpen(true);
-                  }}
+                  onClick={() => setIsMapPickerOpen(true)}
                   className="px-4 py-2 bg-accent/10 hover:bg-accent/20 border-accent/30 border text-accent font-semibold rounded-xl flex items-center gap-2 transition-colors whitespace-nowrap"
-                  title="Buscar esta dirección en Google Maps"
+                  title="Ajustar esta dirección manualmente en el mapa"
                 >
-                  <Search size={18} />
-                  <span>🔎 Buscar en Mapa</span>
+                  <MapPin size={18} />
+                  <span>📍 Ajustar Pin</span>
                 </button>
               </div>
             </div>
@@ -744,6 +776,7 @@ export default function Clientes() {
         <div className="h-[400px] w-full bg-main rounded-xl overflow-hidden relative border border-bd-lines">
           <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
             <Map 
+               mapId="4ef3f75cb2fa28f4"
                defaultCenter={{lat: -34.6037, lng: -58.3816}} 
                defaultZoom={11} 
                gestureHandling={'greedy'}
@@ -759,16 +792,21 @@ export default function Clientes() {
             >
               {(() => {
                 const pos = editingClient ? (editingClient.lat ? {lat: editingClient.lat, lng: editingClient.lng} : null) : (newClient.lat ? {lat: newClient.lat, lng: newClient.lng} : null);
-                const currentImage = editingClient?.image || newClient?.image;
-                const activeIcon = currentImage ? {
-                  url: currentImage,
-                  scaledSize: window?.google?.maps?.Size ? new window.google.maps.Size(44, 44) : null,
-                } : undefined;
+                let currentImage = editingClient?.image || newClient?.image;
+                if (currentImage === 'https://picsum.photos/seed/client/200/200') {
+                    currentImage = `https://picsum.photos/seed/${editingClient?.id || newClient?.id || 'temp'}/200/200`;
+                }
 
                 return (
                   <>
-                    <PickerMapController pos={pos} />
-                    {pos && <Marker position={pos} icon={activeIcon} />}
+                     <PickerMapController pos={pos} />
+                     {pos && (
+                       <AdvancedMarker position={pos}>
+                         <div className="size-11 rounded-full border-[3px] border-white shadow-xl overflow-hidden bg-white/90 backdrop-blur-sm">
+                           <img src={currentImage} className="w-full h-full object-cover" />
+                         </div>
+                       </AdvancedMarker>
+                     )}
                   </>
                 );
               })()}

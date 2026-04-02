@@ -102,14 +102,12 @@ export default function Login({ onLogin, onGuestLogin }: { onLogin: () => void, 
  };
 
  return (
- <div className="min-h-[100dvh] bg-main flex flex-col items-center justify-center px-4 relative overflow-hidden font-sans w-full">
- {/* Dark background top half for logo visibility */}
- <div className="absolute top-0 left-0 w-full h-[250px] md:h-[350px] bg-accent"></div>
+ <div className="min-h-[100dvh] bg-main bg-aurora flex flex-col items-center justify-center px-4 relative overflow-hidden font-sans w-full">
  
  <div className="w-full max-w-md relative z-10 flex flex-col items-center justify-center py-4">
- {/* Logo outside the card, on the dark background */}
- <div className="flex flex-col items-center mb-8 md:mb-14 w-full mt-8 md:mt-12">
- <Logo className="h-[105px] md:h-[135px] drop-shadow-xl w-auto max-w-[95vw] object-contain" />
+ {/* Logo outside the card */}
+ <div className="flex flex-col items-center mb-8 md:mb-12 w-full mt-10 md:mt-16">
+ <Logo className="h-[189px] md:h-[243px] drop-shadow-2xl max-w-full" />
  </div>
 
  {/* Main Login Card */}

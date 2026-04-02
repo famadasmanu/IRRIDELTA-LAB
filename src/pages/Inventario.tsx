@@ -471,9 +471,6 @@ export default function Inventario() {
                 <span>Pedido Vacío</span>
               </button>
             )}
-            <button className="size-10 flex shrink-0 items-center justify-center rounded-full bg-main text-tx-secondary shadow-sm">
-              <UserCircle size={20} />
-            </button>
           </div>
         </div>
       </header>
